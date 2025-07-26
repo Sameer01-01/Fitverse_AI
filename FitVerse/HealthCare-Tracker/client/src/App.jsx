@@ -20,6 +20,7 @@ import Morning from "./components/Excercise/Morning";
 import Deskcurls from "./components/Excercise/DeskExcercise/Deskcurls";
 import Hand from "./components/Excercise/DeskExcercise/Hand";
 import Kneeraises from "./components/Excercise/DeskExcercise/Kneeraises";
+import Meet from "./components/Meet";
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
         <Route path="/exercise" element={<Exercise />} />
         <Route path="/nutrition" element={<Nutrition />} />
         <Route path="/exercisecard" element={<ExerciseCard />} />
+        <Route path="/meet" element={<Meet />} />
 
         
         {/* TensorFlow Exercise Routes */}

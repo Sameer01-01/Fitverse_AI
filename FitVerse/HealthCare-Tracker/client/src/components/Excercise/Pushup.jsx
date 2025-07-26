@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import * as poseDetection from '@tensorflow-models/pose-detection';
-import pushup from "../../assets/pushup.gif"
+import pushup from "../../assets/pushup.gif";
+
 const Pushup = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -15,6 +16,12 @@ const Pushup = () => {
   const [showManualMode, setShowManualMode] = useState(false);
   const [detector, setDetector] = useState(null);
   
+  // Heart rate tracking state
+  const [heartRate, setHeartRate] = useState(72); // Initial resting heart rate
+  const [heartRateHistory, setHeartRateHistory] = useState([]);
+  const heartRateIntervalRef = useRef(null);
+  const lastExerciseCountRef = useRef(0);
+
   // References for exercise tracking
   const poseHistoryRef = useRef([]);
   const countingStateRef = useRef('up');
@@ -22,6 +29,86 @@ const Pushup = () => {
   const frameCountRef = useRef(0);
   const lastRepTimeRef = useRef(0); // Prevent multiple counts in short time
   const stateStabilityCounterRef = useRef(0); // For counting stability
+
+  // Simulate heart rate based on exercise intensity
+  useEffect(() => {
+    if (isTracking) {
+      // Clear any existing interval
+      if (heartRateIntervalRef.current) {
+        clearInterval(heartRateIntervalRef.current);
+      }
+
+      // Start new interval to update heart rate
+      heartRateIntervalRef.current = setInterval(() => {
+        // Base heart rate increase based on exercise count
+        const exerciseIntensity = exerciseCount - lastExerciseCountRef.current;
+        lastExerciseCountRef.current = exerciseCount;
+
+        // Calculate new heart rate
+        let newRate = heartRate;
+        
+        if (exerciseIntensity > 0) {
+          // Increase heart rate based on recent exercise
+          newRate = Math.min(180, heartRate + (exerciseIntensity * 3));
+        } else {
+          // Gradually decrease heart rate when not exercising
+          newRate = Math.max(72, heartRate - 0.5);
+        }
+
+        // Add some random variation to make it more realistic
+        newRate += (Math.random() * 4 - 2);
+
+        setHeartRate(Math.round(newRate));
+        
+        // Update heart rate history (keep last 20 readings)
+        setHeartRateHistory(prev => {
+          const newHistory = [...prev, { rate: Math.round(newRate), time: new Date() }];
+          return newHistory.slice(-20);
+        });
+      }, 2000); // Update every 2 seconds
+
+      return () => {
+        if (heartRateIntervalRef.current) {
+          clearInterval(heartRateIntervalRef.current);
+        }
+      };
+    } else {
+      // When not tracking, gradually return to resting heart rate
+      if (heartRateIntervalRef.current) {
+        clearInterval(heartRateIntervalRef.current);
+      }
+
+      const returnToResting = setInterval(() => {
+        setHeartRate(prev => {
+          if (prev <= 72) {
+            clearInterval(returnToResting);
+            return 72;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(returnToResting);
+    }
+  }, [isTracking, exerciseCount]);
+
+  // Calculate heart rate zone
+  const getHeartRateZone = () => {
+    if (heartRate < 100) return 'Resting';
+    if (heartRate < 120) return 'Warm Up';
+    if (heartRate < 140) return 'Fat Burning';
+    if (heartRate < 160) return 'Aerobic';
+    return 'Peak';
+  };
+
+  // Get heart rate zone color
+  const getZoneColor = () => {
+    if (heartRate < 100) return 'text-gray-400';
+    if (heartRate < 120) return 'text-blue-400';
+    if (heartRate < 140) return 'text-green-400';
+    if (heartRate < 160) return 'text-yellow-400';
+    return 'text-red-400';
+  };
 
   // Load TF and PoseNet models
   useEffect(() => {
@@ -373,6 +460,8 @@ const Pushup = () => {
     setFeedback('Stats reset');
     countingStateRef.current = 'up';
     stateStabilityCounterRef.current = 0;
+    setHeartRate(72);
+    setHeartRateHistory([]);
   };
 
   // Render loading state
@@ -460,6 +549,53 @@ const Pushup = () => {
               </div>
             </div>
 
+            {/* Heart Rate Monitor Section */}
+            <div className="mb-6 bg-gray-700/50 rounded-lg p-4 border border-gray-600/50">
+              <h2 className="text-xl font-bold mb-3">Heart Rate Monitor</h2>
+              
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-4xl font-bold" style={{ color: heartRate > 140 ? '#ef4444' : heartRate > 120 ? '#f59e0b' : '#3b82f6' }}>
+                  {heartRate}
+                  <span className="text-lg ml-1">BPM</span>
+                </div>
+                <div className={`text-lg font-medium ${getZoneColor()}`}>
+                  {getHeartRateZone()}
+                </div>
+              </div>
+              
+              <div className="h-2 bg-gray-600 rounded-full overflow-hidden mb-3">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 via-green-500 to-red-500" 
+                  style={{ width: `${Math.min(100, (heartRate - 60) / 1.2)}%` }}
+                ></div>
+              </div>
+              
+              <div className="text-xs text-gray-400 flex justify-between">
+                <span>Resting</span>
+                <span>Peak</span>
+              </div>
+              
+              {/* Heart rate history graph */}
+              <div className="mt-4 h-20 relative">
+                <div className="absolute inset-0 flex items-end">
+                  {heartRateHistory.map((entry, index) => (
+                    <div 
+                      key={index}
+                      className="flex-1 h-full flex items-end"
+                    >
+                      <div 
+                        className="w-full bg-blue-500 rounded-t-sm"
+                        style={{ 
+                          height: `${((entry.rate - 60) / 120) * 100}%`,
+                          backgroundColor: entry.rate > 140 ? '#ef4444' : entry.rate > 120 ? '#f59e0b' : '#3b82f6'
+                        }}
+                      ></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div className="mb-6">
               <h2 className="text-xl font-bold mb-3">Controls</h2>
 
@@ -493,9 +629,8 @@ const Pushup = () => {
                 )}
               </div>
               <div>
-              <img src={pushup} alt="Push-up GIF" className='mt-4 rounded-xl'/>
+                <img src={pushup} alt="Push-up GIF" className='mt-4 rounded-xl'/>
               </div>
-
             </div>
 
             <div>
