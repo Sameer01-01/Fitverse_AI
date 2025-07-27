@@ -17,9 +17,15 @@ const Squats = () => {
   const [showManualMode, setShowManualMode] = useState(false);
   const [detector, setDetector] = useState(null);
 
+  // Heart rate tracking state
+  const [heartRate, setHeartRate] = useState(72); // Initial resting heart rate
+  const [heartRateHistory, setHeartRateHistory] = useState([]);
+  const heartRateIntervalRef = useRef(null);
+  const lastExerciseCountRef = useRef(0);
+
   const poseHistoryRef = useRef([]);
   const countingStateRef = useRef('standing');
-  const confidenceThresholdRef = useRef(0.3); // Lowered threshold for better detection
+  const confidenceThresholdRef = useRef(0.3);
   const frameCountRef = useRef(0);
   
   // Squat-specific tracking refs
@@ -27,6 +33,86 @@ const Squats = () => {
   const squatDepthRef = useRef(0);
   const repPhaseTimerRef = useRef(null);
   const isAtBottomRef = useRef(false);
+
+  // Simulate heart rate based on exercise intensity
+  useEffect(() => {
+    if (isTracking) {
+      // Clear any existing interval
+      if (heartRateIntervalRef.current) {
+        clearInterval(heartRateIntervalRef.current);
+      }
+
+      // Start new interval to update heart rate
+      heartRateIntervalRef.current = setInterval(() => {
+        // Base heart rate increase based on exercise count
+        const exerciseIntensity = exerciseCount - lastExerciseCountRef.current;
+        lastExerciseCountRef.current = exerciseCount;
+
+        // Calculate new heart rate
+        let newRate = heartRate;
+        
+        if (exerciseIntensity > 0) {
+          // Increase heart rate based on recent exercise
+          newRate = Math.min(180, heartRate + (exerciseIntensity * 2)); // Squats are less intense than pull-ups
+        } else {
+          // Gradually decrease heart rate when not exercising
+          newRate = Math.max(72, heartRate - 0.5);
+        }
+
+        // Add some random variation to make it more realistic
+        newRate += (Math.random() * 4 - 2);
+
+        setHeartRate(Math.round(newRate));
+        
+        // Update heart rate history (keep last 20 readings)
+        setHeartRateHistory(prev => {
+          const newHistory = [...prev, { rate: Math.round(newRate), time: new Date() }];
+          return newHistory.slice(-20);
+        });
+      }, 2000); // Update every 2 seconds
+
+      return () => {
+        if (heartRateIntervalRef.current) {
+          clearInterval(heartRateIntervalRef.current);
+        }
+      };
+    } else {
+      // When not tracking, gradually return to resting heart rate
+      if (heartRateIntervalRef.current) {
+        clearInterval(heartRateIntervalRef.current);
+      }
+
+      const returnToResting = setInterval(() => {
+        setHeartRate(prev => {
+          if (prev <= 72) {
+            clearInterval(returnToResting);
+            return 72;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(returnToResting);
+    }
+  }, [isTracking, exerciseCount]);
+
+  // Calculate heart rate zone
+  const getHeartRateZone = () => {
+    if (heartRate < 100) return 'Resting';
+    if (heartRate < 120) return 'Warm Up';
+    if (heartRate < 140) return 'Fat Burning';
+    if (heartRate < 160) return 'Aerobic';
+    return 'Peak';
+  };
+
+  // Get heart rate zone color
+  const getZoneColor = () => {
+    if (heartRate < 100) return 'text-gray-400';
+    if (heartRate < 120) return 'text-blue-400';
+    if (heartRate < 140) return 'text-green-400';
+    if (heartRate < 160) return 'text-yellow-400';
+    return 'text-red-400';
+  };
 
   useEffect(() => {
     const loadModels = async () => {
@@ -155,7 +241,6 @@ const Squats = () => {
   const countSquats = (pose) => {
     const findKeypoint = (name) => pose.keypoints.find(kp => kp.name === name);
     
-    // For squats, we only need to track hip and knee positions - we don't need upper body
     const leftHip = findKeypoint('left_hip');
     const rightHip = findKeypoint('right_hip');
     const leftKnee = findKeypoint('left_knee');
@@ -163,10 +248,8 @@ const Squats = () => {
     const leftAnkle = findKeypoint('left_ankle');
     const rightAnkle = findKeypoint('right_ankle');
     
-    // Only check the lower body keypoints for squats
     const keypoints = [leftHip, rightHip, leftKnee, rightKnee];
     
-    // We'll make ankle points optional - detection still works without them
     const essentialPointsDetected = keypoints.every(kp => kp && kp.score > confidenceThresholdRef.current);
     
     if (!essentialPointsDetected) {
@@ -174,50 +257,36 @@ const Squats = () => {
       return;
     }
     
-    // Calculate average hip position (midpoint between left and right hip)
     const hipY = (leftHip.y + rightHip.y) / 2;
     const hipX = (leftHip.x + rightHip.x) / 2;
     const kneeY = (leftKnee.y + rightKnee.y) / 2;
     
-    // Store valid hip position for reference
     lastValidHipPositionRef.current = { x: hipX, y: hipY };
     
-    // Determine the bottom of the frame or use ankle position if detected
     let ankleY;
     if (leftAnkle && rightAnkle && 
         leftAnkle.score > confidenceThresholdRef.current && 
         rightAnkle.score > confidenceThresholdRef.current) {
       ankleY = (leftAnkle.y + rightAnkle.y) / 2;
     } else {
-      // If ankles not visible, use a reference point near bottom of frame
       ankleY = canvasRef.current.height * 0.9;
     }
     
-    // Calculate hip-to-knee distance relative to knee-to-ankle distance
-    // This gives us a normalized measure even without seeing the full body
     const hipToKneeDistance = Math.abs(hipY - kneeY);
     const kneeToBottomDistance = Math.abs(kneeY - ankleY);
     
-    // Calculate current hip position as percentage of the range
-    // Lower number means hips are lower (deeper squat)
     const normalizedHipPosition = (ankleY - hipY) / (ankleY - kneeY);
     
-    // Updated thresholds focused on hip position relative to knees
-    const standingThreshold = 2.0; // Hip position when standing (higher number)
-    const squatThreshold = 1.5;    // Hip position at proper squat depth (lower number)
+    const standingThreshold = 2.0;
+    const squatThreshold = 1.5;
     
-    // Calculate current squat depth as a percentage
-    // Normalize to 0-100% for visualization
     squatDepthRef.current = Math.max(0, Math.min(100, 
       100 * (1 - (normalizedHipPosition - squatThreshold) / (standingThreshold - squatThreshold))
     ));
     
-    // Standing position is when hips are high relative to knees
     const standingPosition = normalizedHipPosition > standingThreshold;
-    // Squat position is when hips are closer to knee level
     const squatPosition = normalizedHipPosition < squatThreshold;
     
-    // Logic for counting a rep - simplified without strict form checking
     if (countingStateRef.current === 'standing' && squatPosition && !isAtBottomRef.current) {
       isAtBottomRef.current = true;
       countingStateRef.current = 'squatting';
@@ -236,12 +305,9 @@ const Squats = () => {
     ctx.drawImage(videoRef.current, 0, 0);
     
     if (pose.keypoints) {
-      // Only draw the lower body connections for squats
       drawLowerBodyConnections(ctx, pose.keypoints);
       
-      // Only visualize lower body keypoints
       pose.keypoints.forEach(keypoint => {
-        // Only draw lower body keypoints
         if (keypoint.name && (
             keypoint.name.includes('hip') || 
             keypoint.name.includes('knee') || 
@@ -267,45 +333,37 @@ const Squats = () => {
       });
     }
     
-    // Draw squat depth indicator
     const height = canvasRef.current.height;
     const width = canvasRef.current.width;
     
-    // Draw reference lines for squat positions
     ctx.strokeStyle = 'aqua';
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
     
-    // Standing reference line (top line)
     ctx.beginPath();
     ctx.moveTo(0, height * 0.45);
     ctx.lineTo(width, height * 0.45);
     ctx.stroke();
     
-    // Squat depth reference line (bottom line)
     ctx.beginPath();
     ctx.moveTo(0, height * 0.75);
     ctx.lineTo(width, height * 0.75);
     ctx.stroke();
     ctx.setLineDash([]);
     
-    // Draw squat depth indicator
     ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
     ctx.fillRect(width - 40, height - (squatDepthRef.current / 100) * height, 30, (squatDepthRef.current / 100) * height);
     
     ctx.fillStyle = 'white';
     ctx.fillText(`${Math.round(squatDepthRef.current)}%`, width - 35, height - 10);
     
-    // Draw state text
     ctx.font = '20px Arial';
     ctx.fillStyle = 'white';
     ctx.fillText(`State: ${countingStateRef.current.toUpperCase()}`, 10, 30);
     ctx.fillText(`Reps: ${exerciseCount}`, 10, 60);
   };
 
-  // Modified to only draw lower body connections
   const drawLowerBodyConnections = (ctx, keypoints) => {
-    // Focus only on lower body connections
     const connections = [
       ['left_hip', 'right_hip'],
       ['left_hip', 'left_knee'], ['right_hip', 'right_knee'],
@@ -324,7 +382,6 @@ const Squats = () => {
       const startPoint = keypointMap[startName];
       const endPoint = keypointMap[endName];
       
-      // Only draw if both points are detected with sufficient confidence
       if (startPoint && endPoint && 
           startPoint.score > confidenceThresholdRef.current && 
           endPoint.score > confidenceThresholdRef.current) {
@@ -332,10 +389,9 @@ const Squats = () => {
         ctx.moveTo(startPoint.x, startPoint.y);
         ctx.lineTo(endPoint.x, endPoint.y);
         
-        // Highlight hip-to-knee and knee-to-ankle connections
         if ((startName.includes('hip') && endName.includes('knee')) || 
             (startName.includes('knee') && endName.includes('ankle'))) {
-          ctx.strokeStyle = '#ffcc00'; // Bright yellow for legs
+          ctx.strokeStyle = '#ffcc00';
           ctx.lineWidth = 4;
         } else {
           ctx.strokeStyle = 'aqua';
@@ -362,6 +418,8 @@ const Squats = () => {
     setFeedback('Stats reset');
     countingStateRef.current = 'standing';
     isAtBottomRef.current = false;
+    setHeartRate(72);
+    setHeartRateHistory([]);
   };
 
   const renderLoadingState = () => {
@@ -440,6 +498,53 @@ const Squats = () => {
               <div className="bg-gray-700 rounded-lg p-3 text-center">
                 <p className="text-sm text-gray-400">Completed</p>
                 <p className="text-3xl font-bold text-indigo-400">{exerciseCount}</p>
+              </div>
+            </div>
+
+            {/* Heart Rate Monitor Section */}
+            <div className="mb-6 bg-gray-700/50 rounded-lg p-4 border border-gray-600/50">
+              <h2 className="text-xl font-bold mb-3">Heart Rate Monitor</h2>
+              
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-4xl font-bold" style={{ color: heartRate > 140 ? '#ef4444' : heartRate > 120 ? '#f59e0b' : '#3b82f6' }}>
+                  {heartRate}
+                  <span className="text-lg ml-1">BPM</span>
+                </div>
+                <div className={`text-lg font-medium ${getZoneColor()}`}>
+                  {getHeartRateZone()}
+                </div>
+              </div>
+              
+              <div className="h-2 bg-gray-600 rounded-full overflow-hidden mb-3">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 via-green-500 to-red-500" 
+                  style={{ width: `${Math.min(100, (heartRate - 60) / 1.2)}%` }}
+                ></div>
+              </div>
+              
+              <div className="text-xs text-gray-400 flex justify-between">
+                <span>Resting</span>
+                <span>Peak</span>
+              </div>
+              
+              {/* Heart rate history graph */}
+              <div className="mt-4 h-20 relative">
+                <div className="absolute inset-0 flex items-end">
+                  {heartRateHistory.map((entry, index) => (
+                    <div 
+                      key={index}
+                      className="flex-1 h-full flex items-end"
+                    >
+                      <div 
+                        className="w-full bg-blue-500 rounded-t-sm"
+                        style={{ 
+                          height: `${((entry.rate - 60) / 120) * 100}%`,
+                          backgroundColor: entry.rate > 140 ? '#ef4444' : entry.rate > 120 ? '#f59e0b' : '#3b82f6'
+                        }}
+                      ></div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
             
