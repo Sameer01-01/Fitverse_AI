@@ -16,10 +16,96 @@ const PullUp = () => {
   const [showManualMode, setShowManualMode] = useState(false);
   const [detector, setDetector] = useState(null);
 
+  // Heart rate tracking state
+  const [heartRate, setHeartRate] = useState(72); // Initial resting heart rate
+  const [heartRateHistory, setHeartRateHistory] = useState([]);
+  const heartRateIntervalRef = useRef(null);
+  const lastExerciseCountRef = useRef(0);
+
   const poseHistoryRef = useRef([]);
   const countingStateRef = useRef('up');
   const confidenceThresholdRef = useRef(0.3);
   const frameCountRef = useRef(0);
+
+  // Simulate heart rate based on exercise intensity
+  useEffect(() => {
+    if (isTracking) {
+      // Clear any existing interval
+      if (heartRateIntervalRef.current) {
+        clearInterval(heartRateIntervalRef.current);
+      }
+
+      // Start new interval to update heart rate
+      heartRateIntervalRef.current = setInterval(() => {
+        // Base heart rate increase based on exercise count
+        const exerciseIntensity = exerciseCount - lastExerciseCountRef.current;
+        lastExerciseCountRef.current = exerciseCount;
+
+        // Calculate new heart rate
+        let newRate = heartRate;
+        
+        if (exerciseIntensity > 0) {
+          // Increase heart rate based on recent exercise
+          newRate = Math.min(180, heartRate + (exerciseIntensity * 4)); // Pull-ups are more intense than push-ups
+        } else {
+          // Gradually decrease heart rate when not exercising
+          newRate = Math.max(72, heartRate - 0.5);
+        }
+
+        // Add some random variation to make it more realistic
+        newRate += (Math.random() * 4 - 2);
+
+        setHeartRate(Math.round(newRate));
+        
+        // Update heart rate history (keep last 20 readings)
+        setHeartRateHistory(prev => {
+          const newHistory = [...prev, { rate: Math.round(newRate), time: new Date() }];
+          return newHistory.slice(-20);
+        });
+      }, 2000); // Update every 2 seconds
+
+      return () => {
+        if (heartRateIntervalRef.current) {
+          clearInterval(heartRateIntervalRef.current);
+        }
+      };
+    } else {
+      // When not tracking, gradually return to resting heart rate
+      if (heartRateIntervalRef.current) {
+        clearInterval(heartRateIntervalRef.current);
+      }
+
+      const returnToResting = setInterval(() => {
+        setHeartRate(prev => {
+          if (prev <= 72) {
+            clearInterval(returnToResting);
+            return 72;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(returnToResting);
+    }
+  }, [isTracking, exerciseCount]);
+
+  // Calculate heart rate zone
+  const getHeartRateZone = () => {
+    if (heartRate < 100) return 'Resting';
+    if (heartRate < 120) return 'Warm Up';
+    if (heartRate < 140) return 'Fat Burning';
+    if (heartRate < 160) return 'Aerobic';
+    return 'Peak';
+  };
+
+  // Get heart rate zone color
+  const getZoneColor = () => {
+    if (heartRate < 100) return 'text-gray-400';
+    if (heartRate < 120) return 'text-blue-400';
+    if (heartRate < 140) return 'text-green-400';
+    if (heartRate < 160) return 'text-yellow-400';
+    return 'text-red-400';
+  };
 
   useEffect(() => {
     const loadModels = async () => {
@@ -261,7 +347,6 @@ const PullUp = () => {
     });
   };
 
-  // Manual tracking functions
   const handleManualCount = () => {
     setExerciseCount(prev => prev + 1);
     setFeedback(`Pull-up counted!`);
@@ -275,10 +360,11 @@ const PullUp = () => {
   const resetStats = () => {
     setExerciseCount(0);
     setFeedback('Stats reset');
-    countingStateRef.current = 'up'; // Reset the counting state
+    countingStateRef.current = 'up';
+    setHeartRate(72);
+    setHeartRateHistory([]);
   };
 
-  // Render loading state UI
   const renderLoadingState = () => {
     if (loadingState !== 'ready') {
       let loadingMessage = 'Initializing...';
@@ -303,7 +389,6 @@ const PullUp = () => {
     return null;
   };
 
-  // Render error state UI
   const renderErrorState = () => {
     if (errorMessage) {
       return (
@@ -360,6 +445,53 @@ const PullUp = () => {
                 <div className="bg-gray-700 rounded-lg p-3 text-center">
                   <p className="text-sm text-gray-400">Completed</p>
                   <p className="text-3xl font-bold text-purple-400">{exerciseCount}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Heart Rate Monitor Section */}
+            <div className="mb-6 bg-gray-700/50 rounded-lg p-4 border border-gray-600/50">
+              <h2 className="text-xl font-bold mb-3">Heart Rate Monitor</h2>
+              
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-4xl font-bold" style={{ color: heartRate > 140 ? '#ef4444' : heartRate > 120 ? '#f59e0b' : '#3b82f6' }}>
+                  {heartRate}
+                  <span className="text-lg ml-1">BPM</span>
+                </div>
+                <div className={`text-lg font-medium ${getZoneColor()}`}>
+                  {getHeartRateZone()}
+                </div>
+              </div>
+              
+              <div className="h-2 bg-gray-600 rounded-full overflow-hidden mb-3">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 via-green-500 to-red-500" 
+                  style={{ width: `${Math.min(100, (heartRate - 60) / 1.2)}%` }}
+                ></div>
+              </div>
+              
+              <div className="text-xs text-gray-400 flex justify-between">
+                <span>Resting</span>
+                <span>Peak</span>
+              </div>
+              
+              {/* Heart rate history graph */}
+              <div className="mt-4 h-20 relative">
+                <div className="absolute inset-0 flex items-end">
+                  {heartRateHistory.map((entry, index) => (
+                    <div 
+                      key={index}
+                      className="flex-1 h-full flex items-end"
+                    >
+                      <div 
+                        className="w-full bg-blue-500 rounded-t-sm"
+                        style={{ 
+                          height: `${((entry.rate - 60) / 120) * 100}%`,
+                          backgroundColor: entry.rate > 140 ? '#ef4444' : entry.rate > 120 ? '#f59e0b' : '#3b82f6'
+                        }}
+                      ></div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

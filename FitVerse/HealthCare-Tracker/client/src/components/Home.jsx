@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Dumbbell, Salad, BarChart2, Brain, Heart, Camera, Users, Play, Star, Shield, Clock, Award } from "lucide-react";
+import { ArrowRight, Dumbbell, Salad, BarChart2, Brain, Heart, Camera, Users, Play, Star, Shield, Clock, Award, Sun, Moon } from "lucide-react";
 
 const Home = () => {
   const [scrollY, setScrollY] = useState(0);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isDarkMode, setIsDarkMode] = useState(true);
   
   useEffect(() => {
     const handleScroll = () => {
@@ -23,6 +23,10 @@ const Home = () => {
       window.removeEventListener("mousemove", handleMouseMove);
     };
   }, []);
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
 
   const cards = [
     {
@@ -83,6 +87,35 @@ const Home = () => {
     { icon: <Star size={20} />, text: "5-Star Rated" }
   ];
 
+  const themeClasses = {
+    background: isDarkMode ? 'bg-black' : 'bg-gray-50',
+    text: {
+      primary: isDarkMode ? 'text-white' : 'text-gray-900',
+      secondary: isDarkMode ? 'text-gray-400' : 'text-gray-600',
+      tertiary: isDarkMode ? 'text-gray-300' : 'text-gray-700',
+      accent: isDarkMode ? 'text-blue-400' : 'text-blue-600'
+    },
+    card: {
+      primary: isDarkMode ? 'bg-gray-900/30 backdrop-blur-sm border-gray-800/50' : 'bg-white/70 backdrop-blur-sm border-gray-200/50',
+      hover: isDarkMode ? 'hover:bg-gray-900/50 hover:border-blue-500/30 hover:shadow-blue-500/10' : 'hover:bg-white/90 hover:border-blue-400/30 hover:shadow-blue-600/10'
+    },
+    nav: isDarkMode ? 'backdrop-blur-xl bg-black/80 border-gray-800/50' : 'backdrop-blur-xl bg-white/80 border-gray-200/50',
+    button: {
+      primary: isDarkMode ? 'bg-blue-500 hover:bg-blue-600 shadow-blue-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20',
+      secondary: isDarkMode ? 'bg-gray-900/50 backdrop-blur-sm border-gray-800 hover:bg-gray-800/50' : 'bg-gray-200/50 backdrop-blur-sm border-gray-300 hover:bg-gray-300/50',
+      nav: isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+    },
+    badge: isDarkMode ? 'bg-gray-900/50 backdrop-blur-sm border-gray-800' : 'bg-white/50 backdrop-blur-sm border-gray-200',
+    stats: isDarkMode ? 'bg-gray-900/20 backdrop-blur-xl border-gray-800/30' : 'bg-white/40 backdrop-blur-xl border-gray-200/30',
+    footer: isDarkMode ? 'border-gray-800/50 bg-gray-900/20' : 'border-gray-200/50 bg-white/20'
+  };
+
+  const handleCardClick = (link) => {
+    // In a real app, this would use React Router
+    console.log(`Navigate to: ${link}`);
+    alert(`This would navigate to: ${link}`);
+  };
+
   const container = {
     hidden: { opacity: 0 },
     show: {
@@ -108,16 +141,16 @@ const Home = () => {
   };
 
   return (
-    <div className="bg-black min-h-screen relative overflow-hidden">
+    <div className={`${themeClasses.background} min-h-screen relative overflow-hidden transition-colors duration-500`}>
       {/* Sophisticated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {/* Animated Grid */}
         <div 
-          className="absolute inset-0 opacity-[0.03]"
+          className={`absolute inset-0 ${isDarkMode ? 'opacity-[0.03]' : 'opacity-[0.04]'}`}
           style={{
             backgroundImage: `
-              linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
+              linear-gradient(${isDarkMode ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.15)'} 1px, transparent 1px),
+              linear-gradient(90deg, ${isDarkMode ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.15)'} 1px, transparent 1px)
             `,
             backgroundSize: '50px 50px',
             transform: `translate(${mousePosition.x * 0.01}px, ${mousePosition.y * 0.01}px)`
@@ -126,17 +159,17 @@ const Home = () => {
         
         {/* Floating Orbs */}
         <div 
-          className="absolute top-20 right-20 w-72 h-72 rounded-full bg-blue-500 opacity-[0.08] blur-3xl"
+          className={`absolute top-20 right-20 w-72 h-72 rounded-full bg-blue-500 ${isDarkMode ? 'opacity-[0.08]' : 'opacity-[0.12]'} blur-3xl`}
           style={{ transform: `translateY(${scrollY * 0.2}px) scale(${1 + Math.sin(scrollY * 0.01) * 0.1})` }}
         />
         <div 
-          className="absolute bottom-40 left-20 w-96 h-96 rounded-full bg-blue-400 opacity-[0.06] blur-3xl"
+          className={`absolute bottom-40 left-20 w-96 h-96 rounded-full bg-blue-400 ${isDarkMode ? 'opacity-[0.06]' : 'opacity-[0.10]'} blur-3xl`}
           style={{ transform: `translateY(${scrollY * -0.15}px) scale(${1 + Math.cos(scrollY * 0.008) * 0.1})` }}
         />
         
         {/* Subtle Noise Texture */}
         <div 
-          className="absolute inset-0 opacity-[0.015]"
+          className={`absolute inset-0 ${isDarkMode ? 'opacity-[0.015]' : 'opacity-[0.025]'}`}
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
           }}
@@ -144,22 +177,47 @@ const Home = () => {
       </div>
       
       {/* Navigation */}
-      <nav className="backdrop-blur-xl bg-black/80 border-b border-gray-800/50 p-6 px-8 md:px-12 flex justify-between items-center sticky top-0 z-50">
+      <nav className={`${themeClasses.nav} border-b p-6 px-8 md:px-12 flex justify-between items-center sticky top-0 z-50 transition-colors duration-500`}>
         <div className="flex items-center gap-6">
-          <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+          <div className={`w-10 h-10 ${isDarkMode ? 'bg-blue-500' : 'bg-blue-600'} rounded-lg flex items-center justify-center`}>
             <Dumbbell size={20} className="text-white" />
           </div>
-          <div className="hidden md:block h-6 w-px bg-gray-700" />
-          <h1 className="hidden md:block text-2xl font-bold text-white tracking-tight">
+          <div className={`hidden md:block h-6 w-px ${isDarkMode ? 'bg-gray-700' : 'bg-gray-300'}`} />
+          <h1 className={`hidden md:block text-2xl font-bold ${themeClasses.text.primary} tracking-tight`}>
             FitVerse
           </h1>
         </div>
         
         <div className="flex items-center gap-6">
-          <button className="text-gray-300 hover:text-white transition-colors duration-300 font-medium">
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className={`${themeClasses.text.secondary} hover:${themeClasses.text.primary} transition-colors group p-2 rounded-lg ${isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-200/50'}`}
+          >
+            <div className="relative w-6 h-6">
+              <motion.div
+                initial={false}
+                animate={{ rotate: isDarkMode ? 0 : 180, opacity: isDarkMode ? 1 : 0 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0"
+              >
+                <Moon size={24} />
+              </motion.div>
+              <motion.div
+                initial={false}
+                animate={{ rotate: isDarkMode ? -180 : 0, opacity: isDarkMode ? 0 : 1 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0"
+              >
+                <Sun size={24} />
+              </motion.div>
+            </div>
+          </button>
+
+          <button className={`${themeClasses.button.nav} transition-colors duration-300 font-medium`}>
             Login
           </button>
-          <button className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg shadow-blue-500/20">
+          <button className={`${themeClasses.button.primary} text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg`}>
             Get Started
           </button>
         </div>
@@ -173,32 +231,32 @@ const Home = () => {
           transition={{ duration: 0.8, ease: "easeOut" }}
           className="text-center max-w-4xl mx-auto"
         >
-          <div className="inline-flex items-center gap-3 mb-8 px-6 py-3 bg-gray-900/50 backdrop-blur-sm rounded-full border border-gray-800">
+          <div className={`inline-flex items-center gap-3 mb-8 px-6 py-3 ${themeClasses.badge} rounded-full border`}>
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            <span className="text-blue-400 font-medium text-sm">Transform Your Fitness Journey</span>
+            <span className={`${themeClasses.text.accent} font-medium text-sm`}>Transform Your Fitness Journey</span>
           </div>
           
-          <h1 className="font-black text-white text-6xl md:text-7xl lg:text-8xl tracking-tighter leading-none mb-8">
+          <h1 className={`font-black ${themeClasses.text.primary} text-6xl md:text-7xl lg:text-8xl tracking-tighter leading-none mb-8`}>
             Welcome to{" "}
             <span className="relative">
-              <span className="text-blue-500">FitVerse</span>
-              <div className="absolute -bottom-2 left-0 w-full h-1 bg-blue-500 rounded-full" />
+              <span className={`${isDarkMode ? 'text-blue-500' : 'text-blue-600'}`}>FitVerse</span>
+              <div className={`absolute -bottom-2 left-0 w-full h-1 ${isDarkMode ? 'bg-blue-500' : 'bg-blue-600'} rounded-full`} />
             </span>
           </h1>
           
-          <p className="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto leading-relaxed mb-12 font-light">
+          <p className={`text-xl md:text-2xl ${themeClasses.text.secondary} max-w-3xl mx-auto leading-relaxed mb-12 font-light`}>
             Your premium fitness ecosystem. Where science meets performance, 
             and every workout becomes a step towards excellence.
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-6 mb-16">
-            <button className="px-10 py-4 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold transform transition-all duration-300 hover:scale-105 shadow-xl shadow-blue-500/20 text-lg">
+            <button className={`px-10 py-4 rounded-xl ${themeClasses.button.primary} text-white font-semibold transform transition-all duration-300 hover:scale-105 shadow-xl text-lg`}>
               <span className="flex items-center gap-3">
                 Start Your Journey
                 <ArrowRight size={20} />
               </span>
             </button>
-            <button className="px-10 py-4 rounded-xl bg-gray-900/50 backdrop-blur-sm text-white font-semibold border border-gray-800 hover:bg-gray-800/50 transition-all duration-300 text-lg">
+            <button className={`px-10 py-4 rounded-xl ${themeClasses.button.secondary} ${themeClasses.text.primary} font-semibold border transition-all duration-300 text-lg`}>
               <span className="flex items-center gap-3">
                 <Play size={18} />
                 Watch Demo
@@ -214,7 +272,7 @@ const Home = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1 + index * 0.1 }}
-                className="flex items-center gap-2 text-gray-400 text-sm"
+                className={`flex items-center gap-2 ${themeClasses.text.secondary} text-sm`}
               >
                 {feature.icon}
                 <span>{feature.text}</span>
@@ -233,10 +291,10 @@ const Home = () => {
           transition={{ duration: 0.8 }}
           className="text-center mb-16"
         >
-          <h2 className="font-bold text-4xl md:text-5xl text-white mb-6 tracking-tight">
+          <h2 className={`font-bold text-4xl md:text-5xl ${themeClasses.text.primary} mb-6 tracking-tight`}>
             What drives you today?
           </h2>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+          <p className={`text-xl ${themeClasses.text.secondary} max-w-2xl mx-auto`}>
             Choose your path to excellence with our comprehensive suite of professional tools
           </p>
         </motion.div>
@@ -250,34 +308,34 @@ const Home = () => {
         >
           {cards.map((card, index) => (
             <motion.div key={index} variants={item}>
-              <Link 
-                to={card.link}
-                className="group relative block"
+              <div 
+                onClick={() => handleCardClick(card.link)}
+                className="group relative block cursor-pointer"
               >
-                <div className="bg-gray-900/30 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-8 h-full transition-all duration-500 hover:bg-gray-900/50 hover:border-blue-500/30 hover:shadow-xl hover:shadow-blue-500/10 hover:scale-105">
+                <div className={`${themeClasses.card.primary} rounded-2xl p-8 h-full transition-all duration-500 ${themeClasses.card.hover} hover:scale-105 shadow-xl border`}>
                   {/* Card Icon */}
-                  <div className="w-14 h-14 mb-6 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 group-hover:text-blue-300 transition-all duration-300">
+                  <div className={`w-14 h-14 mb-6 rounded-xl ${isDarkMode ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-blue-100 border-blue-200 text-blue-600'} border flex items-center justify-center ${isDarkMode ? 'group-hover:bg-blue-500/20 group-hover:text-blue-300' : 'group-hover:bg-blue-200 group-hover:text-blue-700'} transition-all duration-300`}>
                     {card.icon}
                   </div>
                   
                   {/* Card Content */}
-                  <h3 className="font-bold text-2xl text-white mb-4 group-hover:text-blue-50 transition-colors">
+                  <h3 className={`font-bold text-2xl ${themeClasses.text.primary} mb-4 ${isDarkMode ? 'group-hover:text-blue-50' : 'group-hover:text-blue-800'} transition-colors`}>
                     {card.title}
                   </h3>
-                  <p className="text-gray-400 mb-6 leading-relaxed group-hover:text-gray-300 transition-colors">
+                  <p className={`${themeClasses.text.secondary} mb-6 leading-relaxed ${isDarkMode ? 'group-hover:text-gray-300' : 'group-hover:text-gray-500'} transition-colors`}>
                     {card.description}
                   </p>
                   
                   {/* Card Action */}
-                  <div className="flex items-center font-semibold text-blue-400 group-hover:text-blue-300 transition-colors">
+                  <div className={`flex items-center font-semibold ${themeClasses.text.accent} ${isDarkMode ? 'group-hover:text-blue-300' : 'group-hover:text-blue-700'} transition-colors`}>
                     <span>Explore</span>
                     <ArrowRight size={18} className="ml-2 transition-transform duration-300 group-hover:translate-x-2" />
                   </div>
                   
                   {/* Hover Effect Line */}
-                  <div className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500 group-hover:w-full transition-all duration-500 rounded-full" />
+                  <div className={`absolute bottom-0 left-0 w-0 h-0.5 ${isDarkMode ? 'bg-blue-500' : 'bg-blue-600'} group-hover:w-full transition-all duration-500 rounded-full`} />
                 </div>
-              </Link>
+              </div>
             </motion.div>
           ))}
         </motion.div>
@@ -292,12 +350,12 @@ const Home = () => {
           transition={{ duration: 0.8 }}
           className="max-w-7xl mx-auto"
         >
-          <div className="bg-gray-900/20 backdrop-blur-xl border border-gray-800/30 rounded-3xl p-12 md:p-16">
+          <div className={`${themeClasses.stats} rounded-3xl p-12 md:p-16 border shadow-xl ${isDarkMode ? 'shadow-black/10' : 'shadow-gray-300/10'}`}>
             <div className="text-center mb-12">
-              <h2 className="font-bold text-3xl md:text-4xl text-white mb-4">
+              <h2 className={`font-bold text-3xl md:text-4xl ${themeClasses.text.primary} mb-4`}>
                 Trusted by fitness enthusiasts worldwide
               </h2>
-              <p className="text-gray-400 text-lg">
+              <p className={`${themeClasses.text.secondary} text-lg`}>
                 Join a community that's redefining what it means to be fit
               </p>
             </div>
@@ -317,10 +375,10 @@ const Home = () => {
                   transition={{ delay: index * 0.1 }}
                   className="text-center"
                 >
-                  <p className="text-4xl md:text-5xl font-black text-blue-400 mb-2">
+                  <p className={`text-4xl md:text-5xl font-black ${themeClasses.text.accent} mb-2`}>
                     {stat.number}
                   </p>
-                  <p className="text-gray-400 font-medium">
+                  <p className={`${themeClasses.text.secondary} font-medium`}>
                     {stat.label}
                   </p>
                 </motion.div>
@@ -331,16 +389,16 @@ const Home = () => {
       </div>
    
       {/* Footer */}
-      <footer className="relative z-10 px-6 py-12 border-t border-gray-800/50 bg-gray-900/20">
+      <footer className={`relative z-10 px-6 py-12 border-t ${themeClasses.footer} transition-colors duration-500`}>
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center mb-8">
             <div className="flex items-center mb-6 md:mb-0">
-              <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-4">
+              <div className={`w-10 h-10 ${isDarkMode ? 'bg-blue-500' : 'bg-blue-600'} rounded-lg flex items-center justify-center mr-4`}>
                 <Dumbbell size={20} className="text-white" />
               </div>
               <div>
-                <h3 className="text-white font-bold text-xl">FitVerse</h3>
-                <p className="text-gray-400 text-sm">Professional Fitness Platform</p>
+                <h3 className={`${themeClasses.text.primary} font-bold text-xl`}>FitVerse</h3>
+                <p className={`${themeClasses.text.secondary} text-sm`}>Professional Fitness Platform</p>
               </div>
             </div>
             
@@ -349,7 +407,7 @@ const Home = () => {
                 <a 
                   key={link}
                   href="#" 
-                  className="text-gray-400 hover:text-blue-400 transition-colors font-medium"
+                  className={`${themeClasses.text.secondary} ${isDarkMode ? 'hover:text-blue-400' : 'hover:text-blue-600'} transition-colors font-medium`}
                 >
                   {link}
                 </a>
@@ -357,8 +415,8 @@ const Home = () => {
             </div>
           </div>
           
-          <div className="border-t border-gray-800/50 pt-8 text-center">
-            <p className="text-gray-500 text-sm">
+          <div className={`border-t ${isDarkMode ? 'border-gray-800/50' : 'border-gray-200/50'} pt-8 text-center`}>
+            <p className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} text-sm`}>
               © 2025 FitVerse. All rights reserved. Crafted with precision for fitness excellence.
             </p>
           </div>
