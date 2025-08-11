@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { ArrowRight, Dumbbell, Salad, BarChart2, Brain, Heart, Camera, Users, Play, Star, Shield, Clock, Award, Sun, Moon } from "lucide-react";
 
 const Home = () => {
+  const navigate = useNavigate();
   const [scrollY, setScrollY] = useState(0);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -77,6 +79,13 @@ const Home = () => {
       icon: <Users size={24} />,
       link: "/meet",
       accent: "blue"
+    },
+    {
+      title: "Women's Health",
+      description: "Comprehensive menstrual cycle tracking, fertility monitoring, and women's health insights",
+      icon: <Heart size={24} />,
+      link: "/women",
+      accent: "pink"
     }
   ];
 
@@ -111,9 +120,9 @@ const Home = () => {
   };
 
   const handleCardClick = (link) => {
-    // In a real app, this would use React Router
-    console.log(`Navigate to: ${link}`);
-    alert(`This would navigate to: ${link}`);
+    // Navigate to the specified route
+    console.log(`Navigating to: ${link}`);
+    navigate(link);
   };
 
   const container = {

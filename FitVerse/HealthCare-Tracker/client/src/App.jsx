@@ -21,6 +21,9 @@ import Deskcurls from "./components/Excercise/DeskExcercise/Deskcurls";
 import Hand from "./components/Excercise/DeskExcercise/Hand";
 import Kneeraises from "./components/Excercise/DeskExcercise/Kneeraises";
 import Meet from "./components/Meet";
+import Womenhealth from "./components/Womenhealth";
+import PeriodTracker from "./components/PeriodTracker";
+import PregnancyCare from "./components/PregnancyCare";
 
 function App() {
   return (
@@ -35,6 +38,9 @@ function App() {
         <Route path="/nutrition" element={<Nutrition />} />
         <Route path="/exercisecard" element={<ExerciseCard />} />
         <Route path="/meet" element={<Meet />} />
+        <Route path="/women" element={<Womenhealth/>}/>
+        <Route path="/period-tracker" element={<PeriodTracker />} />
+        <Route path="/pregnancy-care" element={<PregnancyCare />} />
 
         
         {/* TensorFlow Exercise Routes */}
