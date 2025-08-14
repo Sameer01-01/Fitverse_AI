@@ -119,21 +119,6 @@ yarn dev
 yarn build
 ```
 
-### Environment Variables
-```ini
-# TensorFlow.js Configuration
-VITE_TFJS_BACKEND=webgpu # [webgl, webgpu, cpu]
-VITE_MEDIAPIPE_MODEL_URL=/models/pose
-
-# API Endpoints
-VITE_API_BASE_URL=https://api.fitverse.tech/v1
-VITE_WEBSOCKET_URL=wss://ws.fitverse.tech
-
-# WebRTC Configuration
-VITE_PEERJS_HOST=peer.fitverse.tech
-VITE_PEERJS_PORT=443
-```
-
 ## 🌐 Deployment
 Production build optimized with Vite:
 ```bash
@@ -176,17 +161,3 @@ MIT License - See [LICENSE.md](LICENSE.md) for details.
 ▶️ [Watch Product Demo](https://youtube.com/fitverse-demo)  
 📸 [View Screenshot Gallery](https://github.com/Sameer01-01/inhouseproject_final/assets/screenshots)  
 💬 [Join Community Discord](https://discord.gg/fitverse)
-```
-
-Simply copy this entire block into your `README.md` file - it's ready to use with all sections properly formatted. The document includes:
-- Responsive badge headers
-- Clear feature tables
-- Visual architecture diagram
-- Expanded directory structure
-- Complete installation instructions
-- Docker deployment setup
-- Performance metrics
-- Future roadmap
-- Community links
-
-All in a single copy-paste friendly markdown block with proper formatting preserved.
