@@ -93,6 +93,23 @@ src/
 └── views/                   # Page components
 ```
 
+## 📸 Screenshots
+
+### Desktop Views
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/2087bbea-fe80-4538-afe0-82d3a8358463" width="48%" alt="Desktop View 1 - Dashboard"/>
+  <img src="https://github.com/user-attachments/assets/421a3a48-2a6c-487b-8f2b-806974206ea8" width="45%" alt="Desktop View 2 - Exercise Analysis"/>
+  <br/>
+  <img src="https://github.com/user-attachments/assets/ad57b698-01df-40bc-9da0-f19e3d58f254" width="50%" alt="Desktop View 3 - Nutrition Planner"/>
+  <img src="https://github.com/user-attachments/assets/7e6d7588-3712-4d63-9375-6717eac00aea" width="45%" alt="Desktop View 4 - Health Dashboard"/>
+</div>
+
+### Mobile Responsive Views
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/826e984b-2a43-4109-b0f9-2d544287471a" width="27%" alt="Mobile View 1 - Dashboard"/>
+  <img src="https://github.com/user-attachments/assets/3da53563-d722-458f-8a91-1d815f0b1da5" width="29%" alt="Mobile View 2 - Exercise Tracking"/>
+</div>
+
 ## 🚀 Installation & Development
 
 ### Prerequisites
