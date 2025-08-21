@@ -1,9 +1,11 @@
 # 🏋️‍♂️ Fitverse - AI-Powered Fitness & Health Platform
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![React v19](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react)](https://react.dev/)
-[![TensorFlow.js](https://img.shields.io/badge/TensorFlow.js-4.9.0-FF6F00.svg?logo=tensorflow)](https://www.tensorflow.org/js)
-[![Vite Build](https://img.shields.io/badge/Vite-Build-646CFF.svg?logo=vite)](https://vitejs.dev/)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+![React: 19](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react)
+![TensorFlow.js: 4.9.0](https://img.shields.io/badge/TensorFlow.js-4.9.0-FF6F00.svg?logo=tensorflow)
+![Vite Build](https://img.shields.io/badge/Vite-Build-646CFF.svg?logo=vite)
+![WebGPU Enabled](https://img.shields.io/badge/WebGPU-Enabled-7D3CF0.svg?logo=webgpu)
+![Responsive Design](https://img.shields.io/badge/Design-Responsive-38B2AC.svg?logo=tailwind-css)
 
 **Fitverse** is an AI-driven web platform delivering personalized fitness and wellness solutions through computer vision and machine learning. The system provides real-time form correction, adaptive workout/diet planning, and specialized women's health features.
 
@@ -28,16 +30,33 @@
 - **Health Dashboard** - Progress visualization (Recharts)
 - **Mobile-First Design** - Responsive TailwindCSS layouts
 
-## 🧠 System Architecture
+## System Architecture
 
 ```mermaid
-graph TD
-    A[React UI] --> B[AI Services Layer]
-    A --> C[Backend API]
-    B --> D[TensorFlow.js Models]
-    C --> E[PostgreSQL Database]
-    D --> F[MediaPipe Pose]
-    F --> G[WebGPU Backend]
+graph TB
+    subgraph Frontend
+        A[React 19 UI] --> B[State Management];
+        B --> C[Real-Time Visualization];
+        C --> D[WebGPU Acceleration];
+    end
+    
+    subgraph AI Engine
+        E[TensorFlow.js] --> F[Pose Detection];
+        E --> G[Recommendation Engine];
+        F --> H[MediaPipe Integration];
+        G --> I[ML Algorithms];
+    end
+    
+    subgraph Backend Services
+        J[Node.js API] --> K[PostgreSQL];
+        J --> L[Redis Cache];
+        J --> M[AWS S3 Storage];
+        J --> N[WebRTC Signaling];
+    end
+    
+    A --> E;
+    A --> J;
+    F --> D;
 ```
 
 ### Technical Stack
@@ -93,24 +112,15 @@ src/
 └── views/                   # Page components
 ```
 
-## 📸 Screenshots
+## Screenshots
 
 ### Desktop Views
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/2087bbea-fe80-4538-afe0-82d3a8358463" width="48%" alt="Desktop View 1 - Dashboard"/>
-  <img src="https://github.com/user-attachments/assets/421a3a48-2a6c-487b-8f2b-806974206ea8" width="45%" alt="Desktop View 2 - Exercise Analysis"/>
-  <br/>
-  <img src="https://github.com/user-attachments/assets/ad57b698-01df-40bc-9da0-f19e3d58f254" width="50%" alt="Desktop View 3 - Nutrition Planner"/>
-  <img src="https://github.com/user-attachments/assets/7e6d7588-3712-4d63-9375-6717eac00aea" width="45%" alt="Desktop View 4 - Health Dashboard"/>
-</div>
+<div align="center"> <img src="https://github.com/user-attachments/assets/2087bbea-fe80-4538-afe0-82d3a8358463" width="48%" alt="Comprehensive Dashboard"/> <img src="https://github.com/user-attachments/assets/421a3a48-2a6c-487b-8f2b-806974206ea8" width="45%" alt="Exercise Analysis"/> <br/> <img src="https://github.com/user-attachments/assets/ad57b698-01df-40bc-9da0-f19e3d58f254" width="50%" alt="Nutrition Planning"/> <img src="https://github.com/user-attachments/assets/7e6d7588-3712-4d63-9375-6717eac00aea" width="45%" alt="Health Metrics"/> </div>
 
 ### Mobile Responsive Views
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/826e984b-2a43-4109-b0f9-2d544287471a" width="27%" alt="Mobile View 1 - Dashboard"/>
-  <img src="https://github.com/user-attachments/assets/3da53563-d722-458f-8a91-1d815f0b1da5" width="29%" alt="Mobile View 2 - Exercise Tracking"/>
-</div>
+<div align="center"> <img src="https://github.com/user-attachments/assets/826e984b-2a43-4109-b0f9-2d544287471a" width="27%" alt="Mobile Dashboard"/> <img src="https://github.com/user-attachments/assets/3da53563-d722-458f-8a91-1d815f0b1da5" width="29%" alt="Exercise Tracking"/> </div>
 
-## 🚀 Installation & Development
+## Installation & Development
 
 ### Prerequisites
 - Node.js v18+
@@ -136,7 +146,7 @@ yarn dev
 yarn build
 ```
 
-## 🌐 Deployment
+## Deployment
 Production build optimized with Vite:
 ```bash
 yarn build && yarn preview
@@ -154,18 +164,18 @@ EXPOSE 5173
 CMD ["yarn", "preview"]
 ```
 
-## 📊 Performance Metrics
+## Performance Metrics
 | Module | Loading Time | Model Size | FPS |
 |--------|--------------|------------|-----|
 | Pose Detection | 1.8s | 8.4MB | 42fps |
 | Diet Planner | 0.6s | 2.1MB | N/A |
 | Period Tracker | 0.3s | 0.4MB | N/A |
 
-## 📜 License
+## License
 MIT License - See [LICENSE.md](LICENSE.md) for details.  
 *External model assets (MediaPipe) subject to [Google's Terms](https://mediapipe.dev/)*
 
-## 🚧 Future Roadmap
+## Future Roadmap
 1. **Mobile Application** - React Native port (Q4 2025)
 2. **Wearable Integration** - Apple Watch/Google Fit sync
 3. **Advanced Biomechanics** - 3D motion capture analysis
@@ -173,8 +183,19 @@ MIT License - See [LICENSE.md](LICENSE.md) for details.
 5. **Multi-language Support** - i18n implementation
 6. **Health API** - Apple Health/Google Health Connect
 
+```mermaid
+timeline
+    title Fitverse Development Timeline
+    section 2025
+        Q3 : React Native Mobile App
+        Q4 : Wearable Integration
+    section 2026
+        Q1 : 3D Motion Capture
+        Q2 : Voice Coaching
+        Q3 : Multi-language Support
+        Q4 : Health API Ecosystem
+```
 ---
 
 ▶️ [Watch Product Demo](https://youtube.com/fitverse-demo)  
-📸 [View Screenshot Gallery](https://github.com/Sameer01-01/inhouseproject_final/assets/screenshots)  
-💬 [Join Community Discord](https://discord.gg/fitverse)
+📸 [View Screenshot Gallery](https://github.com/Sameer01-01/inhouseproject_final/assets/screenshots) 
