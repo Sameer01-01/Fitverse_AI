@@ -33,26 +33,26 @@ const Dietplans = () => {
     setError(null);
     
     try {
-      const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyCQKjoV0c1FoExeM22eCuoMXSShlSfcxDc",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: "Suggest 3 healthy meals focusing on balanced diets with high protein and low carbs. Format your response as follows for each meal: 1. Meal title, followed by 2. A list of ingredients and details, one per line. Keep responses concise and clear."
-                  }
-                ]
-              }
-            ]
-          })
-        }
-      );
+      // const response = await fetch(
+      //   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyCQKjoV0c1FoExeM22eCuoMXSShlSfcxDc",
+      //   {
+      //     method: "POST",
+      //     headers: {
+      //       "Content-Type": "application/json"
+      //     },
+      //     body: JSON.stringify({
+      //       contents: [
+      //         {
+      //           parts: [
+      //             {
+      //               text: "Suggest 3 healthy meals focusing on balanced diets with high protein and low carbs. Format your response as follows for each meal: 1. Meal title, followed by 2. A list of ingredients and details, one per line. Keep responses concise and clear."
+      //             }
+      //           ]
+      //         }
+      //       ]
+      //     })
+      //   }
+      // );
       
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status}`);

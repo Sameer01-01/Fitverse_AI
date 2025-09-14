@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell, RadialBarChart, RadialBar, BarChart, Bar } from "recharts";
+//import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell, RadialBarChart, RadialBar, BarChart, Bar } from "recharts";
 
 const Bmi = () => {
   const [weight, setWeight] = useState("");

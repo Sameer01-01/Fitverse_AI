@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import injuryData from '../Data/data.json';
+// import injuryData from '../Data/data.json';
 
 const Icons = {
   Description: () => (
@@ -211,6 +211,7 @@ const Injury = () => {
         )}
 
 
+
         <motion.div 
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
           layout
@@ -241,6 +242,8 @@ const Injury = () => {
                 className="px-6 pt-6 pb-4"
                 layout
               >
+
+              
                 <motion.div 
                   className={`w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600/20 to-purple-900/40 flex items-center justify-center mb-4 mx-auto transition-all duration-500 ${
                     activeCard === index ? 'scale-110' : ''
