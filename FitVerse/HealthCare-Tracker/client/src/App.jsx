@@ -1,29 +1,29 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Home from "./components/Home";
-import Bmi from "./components/Bmi";
-import Dietplans from "./components/Dietplans";
-import Injury from "./components/Injury";
-import Exercise from "./components/Exercise";
-import Nutrition from "./components/Nutrition";
-import ExerciseCard from "./components/ExerciseCard";
+// import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+// import Home from "./components/Home";
+// import Bmi from "./components/Bmi";
+// import Dietplans from "./components/Dietplans";
+// import Injury from "./components/Injury";
+// import Exercise from "./components/Exercise";
+// import Nutrition from "./components/Nutrition";
+// import ExerciseCard from "./components/ExerciseCard";
 
 // TensorFlow Exercise Components
-import Pushup from "./components/Excercise/Pushup";
-import Squat from "./components/Excercise/Sqaut";
-import Bicepcurl from "./components/Excercise/Bicepcurl";
-import Pullup from "./components/Excercise/Pullup";
-import Lunges from "./components/Excercise/Lunges";
-import Shoulderpress from "./components/Excercise/Shoulderpress";
-import Frontraises from "./components/Excercise/Frontraises";
-import Highknees from "./components/Excercise/Highknees";
-import Morning from "./components/Excercise/Morning";
-import Deskcurls from "./components/Excercise/DeskExcercise/Deskcurls";
-import Hand from "./components/Excercise/DeskExcercise/Hand";
-import Kneeraises from "./components/Excercise/DeskExcercise/Kneeraises";
-import Meet from "./components/Meet";
-import Womenhealth from "./components/Womenhealth";
-import PeriodTracker from "./components/PeriodTracker";
-import PregnancyCare from "./components/PregnancyCare";
+// import Pushup from "./components/Excercise/Pushup";
+// import Squat from "./components/Excercise/Sqaut";
+// import Bicepcurl from "./components/Excercise/Bicepcurl";
+// import Pullup from "./components/Excercise/Pullup";
+// import Lunges from "./components/Excercise/Lunges";
+// import Shoulderpress from "./components/Excercise/Shoulderpress";
+// import Frontraises from "./components/Excercise/Frontraises";
+// import Highknees from "./components/Excercise/Highknees";
+// import Morning from "./components/Excercise/Morning";
+// import Deskcurls from "./components/Excercise/DeskExcercise/Deskcurls";
+// import Hand from "./components/Excercise/DeskExcercise/Hand";
+// import Kneeraises from "./components/Excercise/DeskExcercise/Kneeraises";
+// import Meet from "./components/Meet";
+// import Womenhealth from "./components/Womenhealth";
+// import PeriodTracker from "./components/PeriodTracker";
+// import PregnancyCare from "./components/PregnancyCare";
 
 function App() {
   return (
