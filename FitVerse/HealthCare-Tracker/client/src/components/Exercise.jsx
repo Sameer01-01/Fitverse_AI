@@ -83,17 +83,17 @@ const Exercise = () => {
       
       Please provide only one detailed workout plan with exercises, sets, reps, and rest periods. Include warm-up and cool-down suggestions.`;
 
-      // const response = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=AIzaSyCQKjoV0c1FoExeM22eCuoMXSShlSfcxDc", {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json"
-      //   },
-      //   body: JSON.stringify({
-      //     contents: [{
-      //       parts: [{ text: prompt }]
-      //     }]
-      //   })
-      // });
+      const response = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=AIzaSyCQKjoV0c1FoExeM22eCuoMXSShlSfcxDc", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: prompt }]
+          }]
+        })
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

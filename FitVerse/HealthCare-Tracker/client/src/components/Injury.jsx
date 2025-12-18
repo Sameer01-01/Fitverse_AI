@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// import injuryData from '../Data/data.json';
+import injuryData from '../Data/data.json';
 
 const Icons = {
   Description: () => (

@@ -1,4 +1,4 @@
-// mealData.js
+//mealData.js
 
 const mealData = [
     {

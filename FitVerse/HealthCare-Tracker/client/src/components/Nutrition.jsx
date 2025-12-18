@@ -27,7 +27,7 @@ function Nutrition() {
   const [typing, setTyping] = useState(false);
   
   const messagesEndRef = useRef(null);
- // const API_KEY = "AIzaSyAFWuD7AvPWLPmk1lkc8o45OUJ9v59Fh6Q";
+ const API_KEY = "AIzaSyAFWuD7AvPWLPmk1lkc8o45OUJ9v59Fh6Q";
   const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
   const scrollToBottom = () => {
