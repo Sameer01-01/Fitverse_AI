@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import * as poseDetection from '@tensorflow-models/pose-detection';
-import bcp from "../../assets/bicep.gif"
+import { Link } from 'react-router-dom';
+import bcp from "../../assets/bicep.gif";
 
-const BicepCurl = () => {
+const Bicepcurl = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [isWebcamReady, setIsWebcamReady] = useState(false);
@@ -12,69 +13,48 @@ const BicepCurl = () => {
   const [loadingState, setLoadingState] = useState('initial');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState('Position arms in frame to start');
   const [showManualMode, setShowManualMode] = useState(false);
   const [detector, setDetector] = useState(null);
 
-  // Heart rate tracking state
-  const [heartRate, setHeartRate] = useState(72); // Initial resting heart rate
+  // Heart rate tracking
+  const [heartRate, setHeartRate] = useState(72);
   const [heartRateHistory, setHeartRateHistory] = useState([]);
   const heartRateIntervalRef = useRef(null);
   const lastExerciseCountRef = useRef(0);
 
-  const poseHistoryRef = useRef([]);
-  const countingStateRef = useRef('up');
-  const confidenceThresholdRef = useRef(0.3);
+  const countingStateRef = useRef('down'); // 'down' (extended) -> 'up' (curled)
+  const confidenceThresholdRef = useRef(0.25);
   const frameCountRef = useRef(0);
+  const lastRepTimeRef = useRef(0);
 
-  // Simulate heart rate based on exercise intensity
   useEffect(() => {
     if (isTracking) {
-      // Clear any existing interval
-      if (heartRateIntervalRef.current) {
-        clearInterval(heartRateIntervalRef.current);
-      }
-
-      // Start new interval to update heart rate
+      if (heartRateIntervalRef.current) clearInterval(heartRateIntervalRef.current);
       heartRateIntervalRef.current = setInterval(() => {
-        // Base heart rate increase based on exercise count
         const exerciseIntensity = curlCount - lastExerciseCountRef.current;
         lastExerciseCountRef.current = curlCount;
 
-        // Calculate new heart rate
         let newRate = heartRate;
-        
         if (exerciseIntensity > 0) {
-          // Increase heart rate based on recent exercise
-          newRate = Math.min(180, heartRate + (exerciseIntensity * 3));
+          newRate = Math.min(170, heartRate + (exerciseIntensity * 2.5));
         } else {
-          // Gradually decrease heart rate when not exercising
           newRate = Math.max(72, heartRate - 0.5);
         }
-
-        // Add some random variation to make it more realistic
         newRate += (Math.random() * 4 - 2);
 
         setHeartRate(Math.round(newRate));
-        
-        // Update heart rate history (keep last 20 readings)
         setHeartRateHistory(prev => {
           const newHistory = [...prev, { rate: Math.round(newRate), time: new Date() }];
           return newHistory.slice(-20);
         });
-      }, 2000); // Update every 2 seconds
+      }, 2000);
 
       return () => {
-        if (heartRateIntervalRef.current) {
-          clearInterval(heartRateIntervalRef.current);
-        }
+        if (heartRateIntervalRef.current) clearInterval(heartRateIntervalRef.current);
       };
     } else {
-      // When not tracking, gradually return to resting heart rate
-      if (heartRateIntervalRef.current) {
-        clearInterval(heartRateIntervalRef.current);
-      }
-
+      if (heartRateIntervalRef.current) clearInterval(heartRateIntervalRef.current);
       const returnToResting = setInterval(() => {
         setHeartRate(prev => {
           if (prev <= 72) {
@@ -84,12 +64,10 @@ const BicepCurl = () => {
           return prev - 1;
         });
       }, 1000);
-
       return () => clearInterval(returnToResting);
     }
-  }, [isTracking, curlCount]);
+  }, [isTracking, curlCount, heartRate]);
 
-  // Calculate heart rate zone
   const getHeartRateZone = () => {
     if (heartRate < 100) return 'Resting';
     if (heartRate < 120) return 'Warm Up';
@@ -98,7 +76,6 @@ const BicepCurl = () => {
     return 'Peak';
   };
 
-  // Get heart rate zone color
   const getZoneColor = () => {
     if (heartRate < 100) return 'text-gray-400';
     if (heartRate < 120) return 'text-blue-400';
@@ -108,77 +85,90 @@ const BicepCurl = () => {
   };
 
   useEffect(() => {
+    let isMounted = true;
     const loadModels = async () => {
       try {
         setLoadingState('models');
-        setLoadingProgress(10);
+        setLoadingProgress(15);
         await tf.ready();
-        setLoadingProgress(30);
+        if (!isMounted) return;
+        setLoadingProgress(35);
+
         const detectorConfig = {
           modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
           enableSmoothing: true
         };
-        const detector = await poseDetection.createDetector(
-          poseDetection.SupportedModels.MoveNet, 
+        const det = await poseDetection.createDetector(
+          poseDetection.SupportedModels.MoveNet,
           detectorConfig
         );
-        setDetector(detector);
-        setLoadingProgress(40);
-      } catch (error) {
-        console.error('Error loading models:', error);
-        setErrorMessage(`Failed to load pose detection: ${error.message}. Try using manual mode.`);
-        setShowManualMode(true);
-      }
-    };
-    loadModels();
-  }, []);
-
-  useEffect(() => {
-    const setupCamera = async () => {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setErrorMessage('Browser does not support camera access. Try using Chrome or Firefox.');
-        return;
-      }
-      try {
-        setLoadingState('camera');
+        if (!isMounted) return;
+        setDetector(det);
         setLoadingProgress(50);
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            facingMode: 'user'
-          },
-          audio: false,
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current.play();
-            setIsWebcamReady(true);
-            setLoadingProgress(80);
-            if (canvasRef.current) {
-              canvasRef.current.width = videoRef.current.videoWidth;
-              canvasRef.current.height = videoRef.current.videoHeight;
-            }
-          };
-        }
       } catch (error) {
-        console.error('Camera access error:', error);
-        if (error.name === 'NotAllowedError') {
-          setErrorMessage('Camera access denied. Please allow camera access and reload the page.');
-        } else if (error.name === 'NotFoundError') {
-          setErrorMessage('No camera found. Please connect a camera and reload the page.');
-        } else {
-          setErrorMessage(`Camera error: ${error.message}. Try using manual mode instead.`);
+        console.error('Error loading MoveNet:', error);
+        if (isMounted) {
+          setErrorMessage(`Model loading error: ${error.message}. You can continue with manual counting.`);
           setShowManualMode(true);
         }
       }
     };
-    setupCamera();
-    return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+    loadModels();
+    return () => { isMounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let stream = null;
+    let isMounted = true;
+
+    const setupCamera = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setErrorMessage('Browser camera access not supported.');
+        setShowManualMode(true);
+        return;
       }
+      try {
+        setLoadingState('camera');
+        setLoadingProgress(60);
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+          audio: false
+        });
+
+        if (!isMounted) return;
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          const handleReady = () => {
+            if (!videoRef.current) return;
+            videoRef.current.play().catch(e => console.log('Autoplay handled:', e));
+            setIsWebcamReady(true);
+            setLoadingProgress(90);
+            if (canvasRef.current && videoRef.current) {
+              canvasRef.current.width = videoRef.current.videoWidth || 640;
+              canvasRef.current.height = videoRef.current.videoHeight || 480;
+            }
+          };
+
+          videoRef.current.onloadedmetadata = handleReady;
+          videoRef.current.onloadeddata = handleReady;
+          if (videoRef.current.readyState >= 2) handleReady();
+        }
+      } catch (error) {
+        console.error('Camera error:', error);
+        if (isMounted) {
+          setErrorMessage(`Camera error: ${error.message}. You can use manual mode.`);
+          setShowManualMode(true);
+        }
+      }
+    };
+
+    setupCamera();
+
+    return () => {
+      isMounted = false;
+      if (stream) stream.getTracks().forEach(t => t.stop());
     };
   }, []);
 
@@ -186,192 +176,178 @@ const BicepCurl = () => {
     if (isWebcamReady && detector && loadingState !== 'ready') {
       setLoadingState('ready');
       setLoadingProgress(100);
+      setIsTracking(true);
     }
   }, [isWebcamReady, detector, loadingState]);
 
   useEffect(() => {
-    if (!isTracking || !detector || !isWebcamReady || !canvasRef.current) return;
+    if (!detector || !isWebcamReady || !canvasRef.current) return;
+
     let animationFrameId;
+
     const detectPose = async () => {
       if (!videoRef.current || !canvasRef.current) return;
+
       try {
         frameCountRef.current += 1;
-        if (frameCountRef.current % 2 !== 0) {
-          animationFrameId = requestAnimationFrame(detectPose);
-          return;
-        }
-        const poses = await detector.estimatePoses(videoRef.current);
-        if (poses && poses.length > 0) {
-          const pose = poses[0];
-          countBicepCurls(pose);
-          drawPose(pose);
-        } else {
-          setFeedback('No pose detected. Make sure your body is visible.');
+        const ctx = canvasRef.current.getContext('2d');
+        const width = canvasRef.current.width;
+        const height = canvasRef.current.height;
+
+        if (videoRef.current.readyState >= 2) {
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(videoRef.current, 0, 0, width, height);
+
+          if (isTracking) {
+            const poses = await detector.estimatePoses(videoRef.current);
+            if (poses && poses.length > 0) {
+              const pose = poses[0];
+              processExercise(pose);
+              drawPose(ctx, pose, width, height);
+            } else {
+              setFeedback('No pose detected. Position your arms in frame.');
+            }
+          }
         }
       } catch (error) {
-        console.error('Pose detection error:', error);
+        console.error('Pose estimation error:', error);
       }
+
       animationFrameId = requestAnimationFrame(detectPose);
     };
+
     detectPose();
+
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, [isTracking, detector, isWebcamReady]);
 
-  const countBicepCurls = (pose) => {
+  const calculateAngle = (p1, p2, p3) => {
+    if (!p1 || !p2 || !p3) return 180;
+    const radians = Math.atan2(p3[1] - p2[1], p3[0] - p2[0]) - Math.atan2(p1[1] - p2[1], p1[0] - p2[0]);
+    let angle = Math.abs(radians * 180.0 / Math.PI);
+    if (angle > 180.0) angle = 360.0 - angle;
+    return angle;
+  };
+
+  const processExercise = (pose) => {
     if (!pose || !pose.keypoints) return;
-    
+    countBicepCurls(pose);
+  };
+
+  const countBicepCurls = (pose) => {
     const findKeypoint = (name) => pose.keypoints.find(kp => kp.name === name);
+
     const leftShoulder = findKeypoint('left_shoulder');
     const rightShoulder = findKeypoint('right_shoulder');
     const leftElbow = findKeypoint('left_elbow');
     const rightElbow = findKeypoint('right_elbow');
     const leftWrist = findKeypoint('left_wrist');
     const rightWrist = findKeypoint('right_wrist');
-    
-    const keypoints = [leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist];
-    const allDetected = keypoints.every(kp => kp && kp.score > confidenceThresholdRef.current);
-    
-    if (!allDetected) {
-      setFeedback('Position yourself better - make sure your arms are visible');
+
+    let leftAngle = null;
+    let rightAngle = null;
+
+    if (leftShoulder && leftElbow && leftWrist && leftShoulder.score > 0.25 && leftElbow.score > 0.25 && leftWrist.score > 0.25) {
+      leftAngle = calculateAngle([leftShoulder.x, leftShoulder.y], [leftElbow.x, leftElbow.y], [leftWrist.x, leftWrist.y]);
+    }
+    if (rightShoulder && rightElbow && rightWrist && rightShoulder.score > 0.25 && rightElbow.score > 0.25 && rightWrist.score > 0.25) {
+      rightAngle = calculateAngle([rightShoulder.x, rightShoulder.y], [rightElbow.x, rightElbow.y], [rightWrist.x, rightWrist.y]);
+    }
+
+    if (leftAngle === null && rightAngle === null) {
+      setFeedback('Ensure your shoulder, elbow, and wrist are visible');
       return;
     }
-    
-    const leftAngle = calculateAngle(
-      [leftShoulder.x, leftShoulder.y], 
-      [leftElbow.x, leftElbow.y], 
-      [leftWrist.x, leftWrist.y]
-    );
-    
-    const rightAngle = calculateAngle(
-      [rightShoulder.x, rightShoulder.y], 
-      [rightElbow.x, rightElbow.y], 
-      [rightWrist.x, rightWrist.y]
-    );
-    
-    const avgAngle = (leftAngle + rightAngle) / 2;
-    const upThreshold = 160;
-    const downThreshold = 60;
-    
-    if (countingStateRef.current === 'up' && avgAngle < downThreshold) {
-      countingStateRef.current = 'down';
-      setFeedback('Good! Now curl back up');
-    } else if (countingStateRef.current === 'down' && avgAngle > upThreshold) {
+
+    // Determine angle of the actively curling arm
+    let activeAngle = 180;
+    if (leftAngle !== null && rightAngle !== null) {
+      activeAngle = Math.min(leftAngle, rightAngle);
+    } else {
+      activeAngle = leftAngle !== null ? leftAngle : rightAngle;
+    }
+
+    const upThreshold = 65;   // Arm flexed up in curl
+    const downThreshold = 145; // Arm fully lowered
+    const currentTime = Date.now();
+
+    if (countingStateRef.current === 'down' && activeAngle < upThreshold) {
       countingStateRef.current = 'up';
-      setCurlCount(prev => prev + 1);
-      setFeedback('Bicep curl completed! Great job!');
+      setFeedback('Great curl! Now lower your arm with control');
+    } else if (countingStateRef.current === 'up' && activeAngle > downThreshold) {
+      if (currentTime - lastRepTimeRef.current > 500) {
+        countingStateRef.current = 'down';
+        setCurlCount(prev => prev + 1);
+        lastRepTimeRef.current = currentTime;
+        setFeedback('Bicep curl completed! Great work!');
+      }
     }
   };
 
-  const calculateAngle = (p1, p2, p3) => {
-    const radians = Math.atan2(p3[1] - p2[1], p3[0] - p2[0]) - 
-                    Math.atan2(p1[1] - p2[1], p1[0] - p2[0]);
-    let angle = Math.abs(radians * 180.0 / Math.PI);
-    if (angle > 180.0) {
-      angle = 360.0 - angle;
-    }
-    return angle;
-  };
+  const drawPose = (ctx, pose, width, height) => {
+    if (!pose.keypoints) return;
 
-  const drawPose = (pose) => {
-    const ctx = canvasRef.current.getContext('2d');
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctx.drawImage(videoRef.current, 0, 0);
-    
-    if (pose.keypoints) {
-      // Draw connections
-      drawConnections(ctx, pose.keypoints);
-      
-      // Draw keypoints
-      pose.keypoints.forEach(keypoint => {
+    drawArmConnections(ctx, pose.keypoints);
+
+    pose.keypoints.forEach(keypoint => {
+      if (keypoint.name && (keypoint.name.includes('shoulder') || keypoint.name.includes('elbow') || keypoint.name.includes('wrist'))) {
         if (keypoint.score > confidenceThresholdRef.current) {
           const { x, y } = keypoint;
           ctx.beginPath();
           ctx.arc(x, y, 6, 0, 2 * Math.PI);
-          ctx.fillStyle = 'white';
+          ctx.fillStyle = '#ffffff';
           ctx.fill();
+
           ctx.beginPath();
           ctx.arc(x, y, 4, 0, 2 * Math.PI);
-          
-          if (keypoint.name && keypoint.name.includes('face')) {
-            ctx.fillStyle = '#ff0000';
-          } else if (keypoint.name && (keypoint.name.includes('shoulder') || keypoint.name.includes('hip'))) {
-            ctx.fillStyle = '#00ff00';
-          } else if (keypoint.name && (keypoint.name.includes('elbow') || keypoint.name.includes('wrist'))) {
-            ctx.fillStyle = '#ffff00';
-          } else if (keypoint.name && (keypoint.name.includes('knee') || keypoint.name.includes('ankle'))) {
-            ctx.fillStyle = '#00ffff';
-          } else {
-            ctx.fillStyle = '#ff00ff';
-          }
+          if (keypoint.name.includes('shoulder')) ctx.fillStyle = '#22c55e';
+          else if (keypoint.name.includes('elbow')) ctx.fillStyle = '#eab308';
+          else ctx.fillStyle = '#38bdf8';
           ctx.fill();
         }
-      });
-    }
-    
-    // Draw bicep curl guide line
-    ctx.strokeStyle = 'aqua';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
-    const height = canvasRef.current.height;
-    ctx.beginPath();
-    ctx.moveTo(0, height * 0.6);
-    ctx.lineTo(canvasRef.current.width, height * 0.6);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    
-    // Draw state and rep count
-    ctx.font = '20px Arial';
-    ctx.fillStyle = 'white';
-    ctx.fillText(`State: ${countingStateRef.current.toUpperCase()}`, 10, 30);
-    ctx.fillText(`Reps: ${curlCount}`, 10, 60);
-  };
-
-  const drawConnections = (ctx, keypoints) => {
-    const connections = [
-      ['nose', 'left_eye'], ['nose', 'right_eye'],
-      ['left_eye', 'left_ear'], ['right_eye', 'right_ear'],
-      ['nose', 'left_shoulder'], ['nose', 'right_shoulder'],
-      ['left_shoulder', 'left_elbow'], ['right_shoulder', 'right_elbow'],
-      ['left_elbow', 'left_wrist'], ['right_elbow', 'right_wrist'],
-      ['left_shoulder', 'right_shoulder'],
-      ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
-      ['left_hip', 'right_hip'],
-      ['left_hip', 'left_knee'], ['right_hip', 'right_knee'],
-      ['left_knee', 'left_ankle'], ['right_knee', 'right_ankle']
-    ];
-    
-    const keypointMap = {};
-    keypoints.forEach(keypoint => {
-      if (keypoint.name) {
-        keypointMap[keypoint.name] = keypoint;
       }
     });
-    
-    ctx.strokeStyle = 'aqua';
-    ctx.lineWidth = 3;
-    
-    connections.forEach(([startName, endName]) => {
-      const startPoint = keypointMap[startName];
-      const endPoint = keypointMap[endName];
-      
-      if (startPoint && endPoint && 
-          startPoint.score > confidenceThresholdRef.current && 
-          endPoint.score > confidenceThresholdRef.current) {
+
+    // HUD
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(10, 10, 180, 70);
+    ctx.strokeStyle = '#3b82f6';
+    ctx.strokeRect(10, 10, 180, 70);
+
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`Arm State: ${countingStateRef.current === 'up' ? 'CURLED' : 'EXTENDED'}`, 20, 35);
+    ctx.fillStyle = '#60a5fa';
+    ctx.fillText(`Curls: ${curlCount}`, 20, 62);
+  };
+
+  const drawArmConnections = (ctx, keypoints) => {
+    const connections = [
+      ['left_shoulder', 'right_shoulder'],
+      ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
+      ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist']
+    ];
+
+    const keypointMap = {};
+    keypoints.forEach(kp => {
+      if (kp.name) keypointMap[kp.name] = kp;
+    });
+
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 4;
+
+    connections.forEach(([start, end]) => {
+      const p1 = keypointMap[start];
+      const p2 = keypointMap[end];
+      if (p1 && p2 && p1.score > confidenceThresholdRef.current && p2.score > confidenceThresholdRef.current) {
         ctx.beginPath();
-        ctx.moveTo(startPoint.x, startPoint.y);
-        ctx.lineTo(endPoint.x, endPoint.y);
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
         ctx.stroke();
       }
     });
-  };
-
-  const handleManualCount = () => {
-    setCurlCount(prev => prev + 1);
-    setFeedback('Bicep curl counted!');
   };
 
   const toggleTracking = () => {
@@ -379,268 +355,206 @@ const BicepCurl = () => {
     setFeedback(isTracking ? 'Tracking paused' : 'Tracking started');
   };
 
-  const resetCounter = () => {
+  const resetStats = () => {
     setCurlCount(0);
     setFeedback('Counter reset');
-    countingStateRef.current = 'up';
+    countingStateRef.current = 'down';
     setHeartRate(72);
     setHeartRateHistory([]);
   };
 
-  const renderLoadingState = () => {
-    if (loadingState !== 'ready') {
-      let loadingMessage = 'Initializing...';
-      if (loadingState === 'models') loadingMessage = 'Loading pose detection models...';
-      if (loadingState === 'camera') loadingMessage = 'Accessing camera...';
-      
-      return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-30">
-          <div className="text-center max-w-md px-6">
-            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-white text-lg mb-4">{loadingMessage}</p>
-            <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-blue-500"
-                style={{ width: `${loadingProgress}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  const renderErrorState = () => {
-    if (errorMessage) {
-      return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-40">
-          <div className="bg-gray-800 p-6 rounded-xl max-w-md text-center">
-            <div className="w-16 h-16 mx-auto mb-4 text-red-500">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">Error</h3>
-            <p className="text-gray-300 mb-6">{errorMessage}</p>
-            {showManualMode && (
-              <button 
-                onClick={() => {
-                  setErrorMessage('');
-                  setLoadingState('ready');
-                  setShowManualMode(true);
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Continue with Manual Mode
-              </button>
-            )}
-          </div>
-        </div>
-      );
-    }
-    return null;
+  const handleManualCount = () => {
+    setCurlCount(prev => prev + 1);
+    setFeedback('Bicep curl counted manually!');
   };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-4 p-3 bg-blue-900/60 border border-blue-400/30 rounded-xl text-blue-200 text-center">
-          <strong>Tip:</strong> Make sure your upper body and arms are visible in the camera, with good lighting. Face the camera directly for best results.
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-800">
+          <Link
+            to="/exercisecard"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 transition-colors text-sm font-semibold border border-gray-700"
+          >
+            ← Back to Live Exercises
+          </Link>
+          <span className="text-xs px-3 py-1 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50">
+            Bicep Curl AI Detection
+          </span>
         </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-400 mb-6">
-          Bicep Curl Tracker
+
+        <div className="mb-4 p-3 bg-blue-950/70 border border-blue-500/30 rounded-xl text-blue-200 text-sm text-center">
+          <strong>Tip:</strong> Stand or sit so your torso and arms are clearly visible. Curl one or both arms all the way up, then extend back down.
+        </div>
+
+        <h1 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-400 mb-6">
+          AI Bicep Curls Tracker
         </h1>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-gray-800 rounded-xl p-4 shadow-lg">
+          <div className="bg-gray-800 rounded-xl p-5 shadow-lg border border-gray-700/60">
             <div className="mb-6">
-              <h2 className="text-xl font-bold mb-3">Your Progress</h2>
-              <div className="bg-gray-700 rounded-lg p-6 text-center">
-                <p className="text-sm text-gray-400 mb-2">Bicep Curls Completed</p>
-                <p className="text-5xl font-bold text-blue-400">{curlCount}</p>
+              <h2 className="text-lg font-bold mb-3 text-gray-200">Your Workout</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-700/70 rounded-lg p-3 text-center border border-gray-600/50">
+                  <p className="text-xs text-gray-400 mb-1">Exercise</p>
+                  <p className="text-lg font-bold text-blue-400">Bicep Curls</p>
+                </div>
+                <div className="bg-gray-700/70 rounded-lg p-3 text-center border border-gray-600/50">
+                  <p className="text-xs text-gray-400 mb-1">Completed</p>
+                  <p className="text-3xl font-black text-teal-400">{curlCount}</p>
+                </div>
               </div>
             </div>
 
-            {/* Heart Rate Monitor Section */}
-            <div className="mb-6 bg-gray-700/50 rounded-lg p-4 border border-gray-600/50">
-              <h2 className="text-xl font-bold mb-3">Heart Rate Monitor</h2>
-              
+            {/* Heart Rate Monitor */}
+            <div className="mb-6 bg-gray-700/40 rounded-lg p-4 border border-gray-600/50">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-300 mb-2">Heart Rate Monitor</h2>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-4xl font-bold" style={{ color: heartRate > 140 ? '#ef4444' : heartRate > 120 ? '#f59e0b' : '#3b82f6' }}>
-                  {heartRate}
-                  <span className="text-lg ml-1">BPM</span>
+                <div className="text-3xl font-bold" style={{ color: heartRate > 140 ? '#ef4444' : heartRate > 120 ? '#f59e0b' : '#3b82f6' }}>
+                  {heartRate} <span className="text-xs text-gray-400">BPM</span>
                 </div>
-                <div className={`text-lg font-medium ${getZoneColor()}`}>
+                <div className={`text-sm font-semibold ${getZoneColor()}`}>
                   {getHeartRateZone()}
                 </div>
               </div>
-              
-              <div className="h-2 bg-gray-600 rounded-full overflow-hidden mb-3">
+              <div className="h-2 bg-gray-600 rounded-full overflow-hidden mb-2">
                 <div 
                   className="h-full bg-gradient-to-r from-blue-500 via-green-500 to-red-500" 
-                  style={{ width: `${Math.min(100, (heartRate - 60) / 1.2)}%` }}
-                ></div>
+                  style={{ width: `${Math.min(100, Math.max(10, (heartRate - 60) / 1.2))}%` }}
+                />
               </div>
-              
-              <div className="text-xs text-gray-400 flex justify-between">
-                <span>Resting</span>
-                <span>Peak</span>
-              </div>
-              
-              {/* Heart rate history graph */}
-              <div className="mt-4 h-20 relative">
-                <div className="absolute inset-0 flex items-end">
-                  {heartRateHistory.map((entry, index) => (
+              <div className="h-12 flex items-end gap-1 mt-3">
+                {heartRateHistory.map((entry, index) => (
+                  <div key={index} className="flex-1 bg-gray-700 h-full flex items-end rounded-t-sm overflow-hidden">
                     <div 
-                      key={index}
-                      className="flex-1 h-full flex items-end"
-                    >
-                      <div 
-                        className="w-full bg-blue-500 rounded-t-sm"
-                        style={{ 
-                          height: `${((entry.rate - 60) / 120) * 100}%`,
-                          backgroundColor: entry.rate > 140 ? '#ef4444' : entry.rate > 120 ? '#f59e0b' : '#3b82f6'
-                        }}
-                      ></div>
-                    </div>
-                  ))}
-                </div>
+                      className="w-full bg-blue-500"
+                      style={{ 
+                        height: `${Math.min(100, Math.max(15, ((entry.rate - 60) / 120) * 100))}%`,
+                        backgroundColor: entry.rate > 140 ? '#ef4444' : entry.rate > 120 ? '#f59e0b' : '#3b82f6'
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
-            
+
             <div className="mb-6">
-              <h2 className="text-xl font-bold mb-3">Controls</h2>
-              
+              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-300 mb-3">Controls</h2>
               <div className="flex flex-col gap-3">
-                <button 
+                <button
                   onClick={toggleTracking}
-                  className={`${isTracking 
-                    ? 'bg-red-600 hover:bg-red-700' 
-                    : 'bg-green-600 hover:bg-green-700'} 
-                    px-4 py-3 rounded-lg font-bold transition-colors text-lg`}
+                  className={`${
+                    isTracking ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'
+                  } py-3 px-4 rounded-xl font-bold transition-all shadow-md`}
                   disabled={loadingState !== 'ready'}
                 >
-                  {isTracking ? 'Stop Tracking' : 'Start Tracking'}
+                  {isTracking ? 'Pause Tracking' : 'Start Tracking'}
                 </button>
-                
-                <button 
-                  onClick={resetCounter}
-                  className="bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg font-bold transition-colors"
+                <button
+                  onClick={resetStats}
+                  className="bg-gray-700 hover:bg-gray-600 py-2.5 px-4 rounded-xl font-semibold transition-colors border border-gray-600 text-sm"
                 >
                   Reset Counter
                 </button>
-                
                 {showManualMode && (
-                  <button 
+                  <button
                     onClick={handleManualCount}
-                    className="bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-lg font-bold transition-colors mt-4"
+                    className="bg-blue-600 hover:bg-blue-500 py-2.5 px-4 rounded-xl font-semibold transition-colors text-sm"
                   >
-                    Count Manually
+                    + Count Curl Manually
                   </button>
                 )}
               </div>
-              <div>
-                <img src={bcp} alt="" className='rounded-xl mt-4'  />
-              </div>
             </div>
-            
-            <div>
-              <h2 className="text-xl font-bold mb-3">Bicep Curl Tips</h2>
-              <ul className="list-disc pl-5 space-y-2 text-gray-300">
-                <li>Face the camera from the front view</li>
-                <li>Keep your elbows close to your body</li>
-                <li>Use controlled movements</li>
-                <li>Fully extend your arms at the bottom</li>
-                <li>Maintain a steady pace</li>
-              </ul>
+
+            <div className="rounded-xl overflow-hidden border border-gray-700">
+              <img src={bcp} alt="Bicep Curl Demo" className="w-full object-cover" />
             </div>
           </div>
-          
-          {/* Camera/Canvas */}
+
           <div className="lg:col-span-2">
-            <div className="bg-gray-800 rounded-xl p-4 shadow-lg">
-              <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                <video 
+            <div className="bg-gray-800 rounded-xl p-5 shadow-lg border border-gray-700/60">
+              <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-gray-700">
+                <video
                   ref={videoRef}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover hidden"
                   playsInline
                   muted
                 />
-                <canvas 
+                <canvas
                   ref={canvasRef}
                   className="absolute inset-0 w-full h-full object-cover z-10"
                 />
-                
-                {/* Render loading state */}
-                {renderLoadingState()}
-                
-                {/* Render error state */}
-                {renderErrorState()}
-                
-                {/* Overlay Elements */}
+
+                {loadingState !== 'ready' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 z-30 p-6">
+                    <div className="w-14 h-14 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+                    <p className="text-white text-base font-semibold mb-3">
+                      {loadingState === 'models' ? 'Loading AI Model...' : 'Connecting Camera...'}
+                    </p>
+                    <div className="w-64 bg-gray-700 h-2 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${loadingProgress}%` }} />
+                    </div>
+                  </div>
+                )}
+
+                {errorMessage && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-40 p-6 text-center">
+                    <p className="text-red-400 font-bold mb-3">{errorMessage}</p>
+                    <button
+                      onClick={() => { setErrorMessage(''); setShowManualMode(true); }}
+                      className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-xl text-sm font-bold"
+                    >
+                      Use Manual Counter
+                    </button>
+                  </div>
+                )}
+
                 {loadingState === 'ready' && (
                   <>
                     <div className="absolute top-4 left-4 z-20">
-                      <div className="bg-black/60 text-white px-3 py-1 rounded-full text-sm">
-                        {isTracking ? 'Tracking Active' : 'Tracking Paused'}
-                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isTracking ? 'bg-green-600/90 text-white' : 'bg-yellow-600/90 text-white'}`}>
+                        {isTracking ? '● Tracking Active' : '❚❚ Tracking Paused'}
+                      </span>
                     </div>
-                    
-                    {/* Exercise Counter */}
+
                     <div className="absolute top-4 right-4 z-20">
-                      <div className="bg-black/60 text-white px-4 py-2 rounded-lg">
-                        <span className="text-3xl font-bold">{curlCount}</span>
-                        <span className="ml-2">Bicep Curls</span>
+                      <div className="bg-black/70 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-gray-700 text-center">
+                        <span className="text-2xl font-black text-teal-400">{curlCount}</span>
+                        <span className="text-xs text-gray-300 ml-1.5">Reps</span>
                       </div>
                     </div>
-                    
-                    {/* Feedback */}
+
                     {feedback && (
                       <div className="absolute bottom-4 left-4 right-4 z-20 text-center">
-                        <div className="bg-black/60 text-white px-4 py-2 rounded-lg inline-block mx-auto">
+                        <div className="bg-black/80 backdrop-blur-md border border-gray-700 text-white text-sm px-4 py-2 rounded-xl inline-block max-w-md mx-auto shadow-lg">
                           {feedback}
                         </div>
                       </div>
                     )}
                   </>
                 )}
-                
-                {/* Manual Mode Overlay */}
-                {showManualMode && loadingState === 'ready' && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
-                    <div className="text-center">
-                      <h3 className="text-xl font-bold text-white mb-2">Manual Tracking Mode</h3>
-                      <p className="text-white mb-4">Press the button to count your bicep curls</p>
-                    </div>
-                  </div>
-                )}
               </div>
-              
-              {/* Progress */}
-              <div className="mt-6">
-                <h3 className="text-xl font-bold mb-2">Today's Goal</h3>
-                <div className="h-4 bg-gray-700 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-500 to-teal-500 rounded-full transition-all duration-500 ease-out"
+
+              <div className="mt-5">
+                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                  <span>Workout Goal</span>
+                  <span>{curlCount} / 20 Reps ({Math.round(Math.min(100, (curlCount / 20) * 100))}%)</span>
+                </div>
+                <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-teal-400 transition-all duration-300"
                     style={{ width: `${Math.min(100, (curlCount / 20) * 100)}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-sm mt-1">
-                  <span>0</span>
-                  <span>Goal: 20 curls</span>
-                </div>
               </div>
-              
-              {/* Quick Guide */}
-              <div className="mt-6 bg-gray-700 p-4 rounded-lg">
-                <h3 className="text-lg font-bold mb-2">Troubleshooting</h3>
-                <div className="space-y-2 text-sm text-gray-300">
-                  <p>• If tracking is inaccurate, try better lighting</p>
-                  <p>• Make sure your full arms are visible in the frame</p>
-                  <p>• Front view works best for bicep curls</p>
-                  <p>• Use a steady pace for best tracking results</p>
-                  <p>• If the model fails to load, use the manual counting mode</p>
-                </div>
+
+              <div className="mt-5 p-4 rounded-xl bg-gray-700/40 border border-gray-700 text-xs text-gray-300 space-y-1.5">
+                <p className="font-bold text-gray-200 text-sm mb-1">Bicep Curl Tips</p>
+                <p>• Keep elbows pinned close to your ribcage.</p>
+                <p>• Curl weight or hands up fully toward your shoulders.</p>
+                <p>• Fully extend your arms down at the bottom of each repetition.</p>
               </div>
             </div>
           </div>
@@ -650,4 +564,4 @@ const BicepCurl = () => {
   );
 };
 
-export default BicepCurl;
+export default Bicepcurl;

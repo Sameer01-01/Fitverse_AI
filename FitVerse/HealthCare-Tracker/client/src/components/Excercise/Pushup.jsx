@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import * as poseDetection from '@tensorflow-models/pose-detection';
+import { Link } from 'react-router-dom';
 import pushup from "../../assets/pushup.gif";
 
 const Pushup = () => {
@@ -12,72 +13,48 @@ const Pushup = () => {
   const [loadingState, setLoadingState] = useState('initial');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState('Position yourself in a plank or push-up stance');
   const [showManualMode, setShowManualMode] = useState(false);
   const [detector, setDetector] = useState(null);
-  
-  // Heart rate tracking state
-  const [heartRate, setHeartRate] = useState(72); // Initial resting heart rate
+
+  // Heart rate
+  const [heartRate, setHeartRate] = useState(72);
   const [heartRateHistory, setHeartRateHistory] = useState([]);
   const heartRateIntervalRef = useRef(null);
   const lastExerciseCountRef = useRef(0);
 
-  // References for exercise tracking
-  const poseHistoryRef = useRef([]);
-  const countingStateRef = useRef('up');
-  const confidenceThresholdRef = useRef(0.3);
+  const countingStateRef = useRef('up'); // 'up' (plank/extended) -> 'down' (chest lowered)
+  const confidenceThresholdRef = useRef(0.25);
   const frameCountRef = useRef(0);
-  const lastRepTimeRef = useRef(0); // Prevent multiple counts in short time
-  const stateStabilityCounterRef = useRef(0); // For counting stability
+  const lastRepTimeRef = useRef(0);
 
-  // Simulate heart rate based on exercise intensity
   useEffect(() => {
     if (isTracking) {
-      // Clear any existing interval
-      if (heartRateIntervalRef.current) {
-        clearInterval(heartRateIntervalRef.current);
-      }
-
-      // Start new interval to update heart rate
+      if (heartRateIntervalRef.current) clearInterval(heartRateIntervalRef.current);
       heartRateIntervalRef.current = setInterval(() => {
-        // Base heart rate increase based on exercise count
         const exerciseIntensity = exerciseCount - lastExerciseCountRef.current;
         lastExerciseCountRef.current = exerciseCount;
 
-        // Calculate new heart rate
         let newRate = heartRate;
-        
         if (exerciseIntensity > 0) {
-          // Increase heart rate based on recent exercise
-          newRate = Math.min(180, heartRate + (exerciseIntensity * 3));
+          newRate = Math.min(180, heartRate + (exerciseIntensity * 3.5));
         } else {
-          // Gradually decrease heart rate when not exercising
           newRate = Math.max(72, heartRate - 0.5);
         }
-
-        // Add some random variation to make it more realistic
         newRate += (Math.random() * 4 - 2);
 
         setHeartRate(Math.round(newRate));
-        
-        // Update heart rate history (keep last 20 readings)
         setHeartRateHistory(prev => {
           const newHistory = [...prev, { rate: Math.round(newRate), time: new Date() }];
           return newHistory.slice(-20);
         });
-      }, 2000); // Update every 2 seconds
+      }, 2000);
 
       return () => {
-        if (heartRateIntervalRef.current) {
-          clearInterval(heartRateIntervalRef.current);
-        }
+        if (heartRateIntervalRef.current) clearInterval(heartRateIntervalRef.current);
       };
     } else {
-      // When not tracking, gradually return to resting heart rate
-      if (heartRateIntervalRef.current) {
-        clearInterval(heartRateIntervalRef.current);
-      }
-
+      if (heartRateIntervalRef.current) clearInterval(heartRateIntervalRef.current);
       const returnToResting = setInterval(() => {
         setHeartRate(prev => {
           if (prev <= 72) {
@@ -87,12 +64,10 @@ const Pushup = () => {
           return prev - 1;
         });
       }, 1000);
-
       return () => clearInterval(returnToResting);
     }
-  }, [isTracking, exerciseCount]);
+  }, [isTracking, exerciseCount, heartRate]);
 
-  // Calculate heart rate zone
   const getHeartRateZone = () => {
     if (heartRate < 100) return 'Resting';
     if (heartRate < 120) return 'Warm Up';
@@ -101,7 +76,6 @@ const Pushup = () => {
     return 'Peak';
   };
 
-  // Get heart rate zone color
   const getZoneColor = () => {
     if (heartRate < 100) return 'text-gray-400';
     if (heartRate < 120) return 'text-blue-400';
@@ -110,547 +84,401 @@ const Pushup = () => {
     return 'text-red-400';
   };
 
-  // Load TF and PoseNet models
   useEffect(() => {
+    let isMounted = true;
     const loadModels = async () => {
       try {
         setLoadingState('models');
-        setLoadingProgress(10);
-        
-        // Load TensorFlow.js
+        setLoadingProgress(15);
         await tf.ready();
-        setLoadingProgress(30);
-        
-        // Switch to BlazePose for better accuracy
+        if (!isMounted) return;
+        setLoadingProgress(35);
+
         const detectorConfig = {
-          runtime: 'tfjs',
-          modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER, // Use Thunder for more accuracy
+          modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
           enableSmoothing: true
         };
-        
-        const detector = await poseDetection.createDetector(
-          poseDetection.SupportedModels.MoveNet, 
+        const det = await poseDetection.createDetector(
+          poseDetection.SupportedModels.MoveNet,
           detectorConfig
         );
-        
-        setDetector(detector);
-        setLoadingProgress(40);
-        
-        console.log('Models loaded successfully');
-      } catch (error) {
-        console.error('Error loading models:', error);
-        setErrorMessage(`Failed to load pose detection: ${error.message}. Try using manual mode.`);
-        setShowManualMode(true);
-      }
-    };
-    
-    loadModels();
-  }, []);
-
-  // Setup webcam with better error handling
-  useEffect(() => {
-    const setupCamera = async () => {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setErrorMessage('Browser does not support camera access. Try using Chrome or Firefox.');
-        return;
-      }
-      
-      try {
-        setLoadingState('camera');
+        if (!isMounted) return;
+        setDetector(det);
         setLoadingProgress(50);
-        
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            facingMode: 'user'
-          },
-          audio: false,
-        });
-        
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current.play();
-            setIsWebcamReady(true);
-            setLoadingProgress(80);
-            
-            // Initialize canvas
-            if (canvasRef.current) {
-              canvasRef.current.width = videoRef.current.videoWidth;
-              canvasRef.current.height = videoRef.current.videoHeight;
-            }
-          };
-        }
       } catch (error) {
-        console.error('Camera access error:', error);
-        if (error.name === 'NotAllowedError') {
-          setErrorMessage('Camera access denied. Please allow camera access and reload the page.');
-        } else if (error.name === 'NotFoundError') {
-          setErrorMessage('No camera found. Please connect a camera and reload the page.');
-        } else {
-          setErrorMessage(`Camera error: ${error.message}. Try using manual mode instead.`);
+        console.error('Error loading MoveNet:', error);
+        if (isMounted) {
+          setErrorMessage(`Model loading error: ${error.message}`);
           setShowManualMode(true);
         }
       }
     };
-    
-    setupCamera();
-    
-    return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+    loadModels();
+    return () => { isMounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let stream = null;
+    let isMounted = true;
+
+    const setupCamera = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setErrorMessage('Browser camera access not supported.');
+        setShowManualMode(true);
+        return;
       }
+      try {
+        setLoadingState('camera');
+        setLoadingProgress(60);
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+          audio: false
+        });
+
+        if (!isMounted) return;
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          const handleReady = () => {
+            if (!videoRef.current) return;
+            videoRef.current.play().catch(e => console.log('Autoplay handled:', e));
+            setIsWebcamReady(true);
+            setLoadingProgress(90);
+            if (canvasRef.current && videoRef.current) {
+              canvasRef.current.width = videoRef.current.videoWidth || 640;
+              canvasRef.current.height = videoRef.current.videoHeight || 480;
+            }
+          };
+
+          videoRef.current.onloadedmetadata = handleReady;
+          videoRef.current.onloadeddata = handleReady;
+          if (videoRef.current.readyState >= 2) handleReady();
+        }
+      } catch (error) {
+        console.error('Camera error:', error);
+        if (isMounted) {
+          setErrorMessage(`Camera error: ${error.message}`);
+          setShowManualMode(true);
+        }
+      }
+    };
+
+    setupCamera();
+
+    return () => {
+      isMounted = false;
+      if (stream) stream.getTracks().forEach(t => t.stop());
     };
   }, []);
 
-  // Start pose detection and tracking when everything is ready
   useEffect(() => {
     if (isWebcamReady && detector && loadingState !== 'ready') {
       setLoadingState('ready');
       setLoadingProgress(100);
+      setIsTracking(true);
     }
   }, [isWebcamReady, detector, loadingState]);
 
-  // Main pose detection and exercise counting logic
   useEffect(() => {
-    if (!isTracking || !detector || !isWebcamReady || !canvasRef.current) return;
-    
+    if (!detector || !isWebcamReady || !canvasRef.current) return;
+
     let animationFrameId;
-    
+
     const detectPose = async () => {
       if (!videoRef.current || !canvasRef.current) return;
-      
+
       try {
-        // Process every frame for better accuracy
         frameCountRef.current += 1;
-        
-        // Detect poses
-        const poses = await detector.estimatePoses(videoRef.current);
-        
-        // Process the detected pose
-        if (poses && poses.length > 0) {
-          const pose = poses[0];
-          processExercise(pose);
-          drawPose(pose);
-        } else {
-          setFeedback('No pose detected. Make sure your body is visible.');
+        const ctx = canvasRef.current.getContext('2d');
+        const width = canvasRef.current.width;
+        const height = canvasRef.current.height;
+
+        if (videoRef.current.readyState >= 2) {
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(videoRef.current, 0, 0, width, height);
+
+          if (isTracking) {
+            const poses = await detector.estimatePoses(videoRef.current);
+            if (poses && poses.length > 0) {
+              const pose = poses[0];
+              processExercise(pose);
+              drawPose(ctx, pose, width, height);
+            } else {
+              setFeedback('No pose detected. Make sure your full body or torso is visible.');
+            }
+          }
         }
       } catch (error) {
-        console.error('Pose detection error:', error);
+        console.error('Pose estimation error:', error);
       }
-      
+
       animationFrameId = requestAnimationFrame(detectPose);
     };
-    
+
     detectPose();
-    
+
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, [isTracking, detector, isWebcamReady]);
 
-  // Process the detected pose and count exercises
+  const calculateAngle = (p1, p2, p3) => {
+    if (!p1 || !p2 || !p3) return 180;
+    const radians = Math.atan2(p3[1] - p2[1], p3[0] - p2[0]) - Math.atan2(p1[1] - p2[1], p1[0] - p2[0]);
+    let angle = Math.abs(radians * 180.0 / Math.PI);
+    if (angle > 180.0) angle = 360.0 - angle;
+    return angle;
+  };
+
   const processExercise = (pose) => {
     if (!pose || !pose.keypoints) return;
-    
-    // Add current pose to history
-    poseHistoryRef.current.push(pose);
-    
-    // Keep only the last 15 frames for better stability
-    if (poseHistoryRef.current.length > 15) {
-      poseHistoryRef.current.shift();
-    }
-    
-    // Process push-ups
     countPushups(pose);
   };
-  
-  // Improved push-up counting logic
+
   const countPushups = (pose) => {
-    // Get relevant keypoints
     const findKeypoint = (name) => pose.keypoints.find(kp => kp.name === name);
-    
+
     const leftShoulder = findKeypoint('left_shoulder');
     const rightShoulder = findKeypoint('right_shoulder');
     const leftElbow = findKeypoint('left_elbow');
     const rightElbow = findKeypoint('right_elbow');
     const leftWrist = findKeypoint('left_wrist');
     const rightWrist = findKeypoint('right_wrist');
-    
-    // Check if core keypoints are detected with good confidence
-    const keypoints = [leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist];
-    const coreDetected = keypoints.filter(kp => kp && kp.score > confidenceThresholdRef.current).length >= 4;
-    
-    if (!coreDetected) {
-      setFeedback('Position yourself better - ensure your upper body is clearly visible');
+
+    let leftElbowAngle = null;
+    let rightElbowAngle = null;
+
+    if (leftShoulder && leftElbow && leftWrist && leftShoulder.score > 0.25 && leftElbow.score > 0.25 && leftWrist.score > 0.25) {
+      leftElbowAngle = calculateAngle([leftShoulder.x, leftShoulder.y], [leftElbow.x, leftElbow.y], [leftWrist.x, leftWrist.y]);
+    }
+    if (rightShoulder && rightElbow && rightWrist && rightShoulder.score > 0.25 && rightElbow.score > 0.25 && rightWrist.score > 0.25) {
+      rightElbowAngle = calculateAngle([rightShoulder.x, rightShoulder.y], [rightElbow.x, rightElbow.y], [rightWrist.x, rightWrist.y]);
+    }
+
+    if (leftElbowAngle === null && rightElbowAngle === null) {
+      setFeedback('Ensure side view of arms is visible to camera');
       return;
     }
-    
-    // Calculate elbow angle to determine push-up state
-    let leftElbowAngle = 180;
-    let rightElbowAngle = 180;
-    
-    if (leftShoulder && leftElbow && leftWrist) {
-      leftElbowAngle = calculateAngle(
-        [leftShoulder.x, leftShoulder.y],
-        [leftElbow.x, leftElbow.y],
-        [leftWrist.x, leftWrist.y]
-      );
-    }
-    
-    if (rightShoulder && rightElbow && rightWrist) {
-      rightElbowAngle = calculateAngle(
-        [rightShoulder.x, rightShoulder.y],
-        [rightElbow.x, rightElbow.y],
-        [rightWrist.x, rightWrist.y]
-      );
-    }
-    
-    // Take the better detected angle or average if both are good
+
+    // Use whichever arm is visible or min angle
     let elbowAngle;
-    if (leftElbow?.score > 0.5 && rightElbow?.score > 0.5) {
-      elbowAngle = (leftElbowAngle + rightElbowAngle) / 2;
-    } else if (leftElbow?.score > 0.5) {
-      elbowAngle = leftElbowAngle;
-    } else if (rightElbow?.score > 0.5) {
-      elbowAngle = rightElbowAngle;
+    if (leftElbowAngle !== null && rightElbowAngle !== null) {
+      elbowAngle = Math.min(leftElbowAngle, rightElbowAngle);
     } else {
-      // Not enough data
-      return;
+      elbowAngle = leftElbowAngle !== null ? leftElbowAngle : rightElbowAngle;
     }
-    
-    // Check elbow angle and shoulders height to determine push-up position
-    // In a push-up, elbows bend (angle decreases) when going down
-    
-    // Up position: Elbow angle is large (arms extended)
-    // Down position: Elbow angle is small (arms bent)
-    const upThreshold = 150; // Nearly straight arms
-    const downThreshold = 100; // Bent arms (about 90 degrees)
-    
+
+    const upThreshold = 145;   // Straight arms
+    const downThreshold = 100; // Bent arms (chest lowered)
     const currentTime = Date.now();
-    const timeSinceLastRep = currentTime - lastRepTimeRef.current;
-    const minRepTime = 500; // Minimum time between reps in ms
-    
-    // Determine push-up state with stability counter
+
     if (countingStateRef.current === 'up' && elbowAngle < downThreshold) {
-      stateStabilityCounterRef.current++;
-      
-      // Require stability before changing state
-      if (stateStabilityCounterRef.current >= 3) {
-        countingStateRef.current = 'down';
-        stateStabilityCounterRef.current = 0;
-        setFeedback('Good! Now push back up');
-      }
+      countingStateRef.current = 'down';
+      setFeedback('Good depth! Now push back up');
     } else if (countingStateRef.current === 'down' && elbowAngle > upThreshold) {
-      stateStabilityCounterRef.current++;
-      
-      // Require stability before counting a rep
-      if (stateStabilityCounterRef.current >= 3 && timeSinceLastRep > minRepTime) {
+      if (currentTime - lastRepTimeRef.current > 500) {
         countingStateRef.current = 'up';
-        stateStabilityCounterRef.current = 0;
         setExerciseCount(prev => prev + 1);
         lastRepTimeRef.current = currentTime;
-        setFeedback('Push-up completed! Great job!');
+        setFeedback('Push-up completed! Great form!');
       }
     }
   };
 
-  // Helper function to calculate angle between three points
-  const calculateAngle = (p1, p2, p3) => {
-    const radians = Math.atan2(p3[1] - p2[1], p3[0] - p2[0]) -
-      Math.atan2(p1[1] - p2[1], p1[0] - p2[0]);
+  const drawPose = (ctx, pose, width, height) => {
+    if (!pose.keypoints) return;
 
-    let angle = Math.abs(radians * 180.0 / Math.PI);
+    drawBodyConnections(ctx, pose.keypoints);
 
-    if (angle > 180.0) {
-      angle = 360.0 - angle;
-    }
-
-    return angle;
-  };
-
-  const drawPose = (pose) => {
-    const ctx = canvasRef.current.getContext('2d');
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-
-    ctx.drawImage(videoRef.current, 0, 0);
-
-    if (pose && pose.keypoints) {
-     
-      pose.keypoints.forEach((keypoint) => {
+    pose.keypoints.forEach(keypoint => {
+      if (keypoint.name && (keypoint.name.includes('shoulder') || keypoint.name.includes('elbow') || keypoint.name.includes('wrist') || keypoint.name.includes('hip'))) {
         if (keypoint.score > confidenceThresholdRef.current) {
           const { x, y } = keypoint;
-
           ctx.beginPath();
           ctx.arc(x, y, 6, 0, 2 * Math.PI);
-          ctx.fillStyle = 'white';
+          ctx.fillStyle = '#ffffff';
           ctx.fill();
 
           ctx.beginPath();
           ctx.arc(x, y, 4, 0, 2 * Math.PI);
-
-          if (keypoint.name === 'left_shoulder' || keypoint.name === 'right_shoulder') {
-            ctx.fillStyle = '#00ff00'; // Green for shoulders
-          } else if (keypoint.name === 'left_elbow' || keypoint.name === 'right_elbow') {
-            ctx.fillStyle = '#ffff00'; // Yellow for elbows
-          } else if (keypoint.name === 'left_wrist' || keypoint.name === 'right_wrist') {
-            ctx.fillStyle = '#ff00ff'; // Pink for wrists
-          } else {
-            ctx.fillStyle = '#ff0000'; // Red for other keypoints
-          }
-
+          if (keypoint.name.includes('shoulder')) ctx.fillStyle = '#22c55e';
+          else if (keypoint.name.includes('elbow')) ctx.fillStyle = '#eab308';
+          else if (keypoint.name.includes('wrist')) ctx.fillStyle = '#38bdf8';
+          else ctx.fillStyle = '#ef4444';
           ctx.fill();
         }
-      });
+      }
+    });
 
-      // Draw connections between keypoints
-      const connections = [
-        ['left_shoulder', 'right_shoulder'],
-        ['left_shoulder', 'left_elbow'],
-        ['left_elbow', 'left_wrist'],
-        ['right_shoulder', 'right_elbow'],
-        ['right_elbow', 'right_wrist'],
-      ];
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(10, 10, 180, 70);
+    ctx.strokeStyle = '#3b82f6';
+    ctx.strokeRect(10, 10, 180, 70);
 
-      ctx.strokeStyle = 'aqua';
-      ctx.lineWidth = 3;
-
-      connections.forEach(([start, end]) => {
-        const startPoint = pose.keypoints.find(kp => kp.name === start);
-        const endPoint = pose.keypoints.find(kp => kp.name === end);
-
-        if (startPoint && endPoint &&
-          startPoint.score > confidenceThresholdRef.current &&
-          endPoint.score > confidenceThresholdRef.current) {
-          ctx.beginPath();
-          ctx.moveTo(startPoint.x, startPoint.y);
-          ctx.lineTo(endPoint.x, endPoint.y);
-          ctx.stroke();
-        }
-      });
-    }
-
-    // Draw exercise-specific guides
-    if (isTracking) {
-      ctx.font = '20px Arial';
-      ctx.fillStyle = 'white';
-      ctx.fillText(`State: ${countingStateRef.current.toUpperCase()}`, 10, 30);
-      ctx.fillText(`Reps: ${exerciseCount}`, 10, 60);
-    }
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`State: ${countingStateRef.current.toUpperCase()}`, 20, 35);
+    ctx.fillStyle = '#60a5fa';
+    ctx.fillText(`Push-ups: ${exerciseCount}`, 20, 62);
   };
 
-  // Manual count button handler
-  const handleManualCount = () => {
-    setExerciseCount(prev => prev + 1);
-    setFeedback('Push-up counted manually!');
+  const drawBodyConnections = (ctx, keypoints) => {
+    const connections = [
+      ['left_shoulder', 'right_shoulder'],
+      ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
+      ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
+      ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
+      ['left_hip', 'right_hip'],
+      ['left_hip', 'left_knee'], ['right_hip', 'right_knee']
+    ];
+
+    const keypointMap = {};
+    keypoints.forEach(kp => { if (kp.name) keypointMap[kp.name] = kp; });
+
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 4;
+
+    connections.forEach(([start, end]) => {
+      const p1 = keypointMap[start];
+      const p2 = keypointMap[end];
+      if (p1 && p2 && p1.score > confidenceThresholdRef.current && p2.score > confidenceThresholdRef.current) {
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+    });
   };
 
-  // Toggle tracking state
   const toggleTracking = () => {
     setIsTracking(!isTracking);
     setFeedback(isTracking ? 'Tracking paused' : 'Tracking started');
   };
 
-  // Reset exercise stats
   const resetStats = () => {
     setExerciseCount(0);
-    setFeedback('Stats reset');
+    setFeedback('Counter reset');
     countingStateRef.current = 'up';
-    stateStabilityCounterRef.current = 0;
     setHeartRate(72);
     setHeartRateHistory([]);
   };
 
-  // Render loading state
-  const renderLoadingState = () => {
-    if (loadingState !== 'ready') {
-      let loadingMessage = 'Initializing...';
-      if (loadingState === 'models') loadingMessage = 'Loading pose detection models...';
-      if (loadingState === 'camera') loadingMessage = 'Accessing camera...';
-
-      return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-30">
-          <div className="text-center max-w-md px-6">
-            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-white text-lg mb-4">{loadingMessage}</p>
-            <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500"
-                style={{ width: `${loadingProgress}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  // Render error state
-  const renderErrorState = () => {
-    if (errorMessage) {
-      return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-40">
-          <div className="bg-gray-800 p-6 rounded-xl max-w-md text-center">
-            <div className="w-16 h-16 mx-auto mb-4 text-red-500">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">Error</h3>
-            <p className="text-gray-300 mb-6">{errorMessage}</p>
-            {showManualMode && (
-              <button
-                onClick={() => {
-                  setErrorMessage('');
-                  setLoadingState('ready');
-                  setShowManualMode(true);
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Continue with Manual Mode
-              </button>
-            )}
-          </div>
-        </div>
-      );
-    }
-    return null;
+  const handleManualCount = () => {
+    setExerciseCount(prev => prev + 1);
+    setFeedback('Push-up counted manually!');
   };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-4 p-3 bg-blue-900/60 border border-blue-400/30 rounded-xl text-blue-200 text-center">
-          <strong>Tip:</strong> Make sure your full body is visible in the camera, with good lighting. For pushups, position the camera to your side and keep your whole body in the frame.
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-800">
+          <Link
+            to="/exercisecard"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 transition-colors text-sm font-semibold border border-gray-700"
+          >
+            ← Back to Live Exercises
+          </Link>
+          <span className="text-xs px-3 py-1 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/50">
+            Push-up AI Detection
+          </span>
         </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-[#48c4a4] mb-6">
-          Fitness Gamified
+
+        <div className="mb-4 p-3 bg-blue-950/70 border border-blue-500/30 rounded-xl text-blue-200 text-sm text-center">
+          <strong>Tip:</strong> Position camera to your side so your head, shoulders, elbows, and hips are clearly visible.
+        </div>
+
+        <h1 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-400 mb-6">
+          AI Push-ups Tracker
         </h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-gray-800 rounded-xl p-4 shadow-lg">
+          <div className="bg-gray-800 rounded-xl p-5 shadow-lg border border-gray-700/60">
             <div className="mb-6">
-              <h2 className="text-xl font-bold mb-3">Your Workout</h2>
-
+              <h2 className="text-lg font-bold mb-3 text-gray-200">Your Workout</h2>
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-700 rounded-lg p-3 text-center">
-                  <p className="text-sm text-gray-400">Exercise</p>
-                  <p className="text-xl font-bold text-blue-400">Push-ups</p>
+                <div className="bg-gray-700/70 rounded-lg p-3 text-center border border-gray-600/50">
+                  <p className="text-xs text-gray-400 mb-1">Exercise</p>
+                  <p className="text-lg font-bold text-blue-400">Push-ups</p>
                 </div>
-
-                <div className="bg-gray-700 rounded-lg p-3 text-center">
-                  <p className="text-sm text-gray-400">Completed</p>
-                  <p className="text-3xl font-bold text-purple-400">{exerciseCount}</p>
+                <div className="bg-gray-700/70 rounded-lg p-3 text-center border border-gray-600/50">
+                  <p className="text-xs text-gray-400 mb-1">Completed</p>
+                  <p className="text-3xl font-black text-teal-400">{exerciseCount}</p>
                 </div>
               </div>
             </div>
 
-            {/* Heart Rate Monitor Section */}
-            <div className="mb-6 bg-gray-700/50 rounded-lg p-4 border border-gray-600/50">
-              <h2 className="text-xl font-bold mb-3">Heart Rate Monitor</h2>
-              
+            <div className="mb-6 bg-gray-700/40 rounded-lg p-4 border border-gray-600/50">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-300 mb-2">Heart Rate Monitor</h2>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-4xl font-bold" style={{ color: heartRate > 140 ? '#ef4444' : heartRate > 120 ? '#f59e0b' : '#3b82f6' }}>
-                  {heartRate}
-                  <span className="text-lg ml-1">BPM</span>
+                <div className="text-3xl font-bold" style={{ color: heartRate > 140 ? '#ef4444' : heartRate > 120 ? '#f59e0b' : '#3b82f6' }}>
+                  {heartRate} <span className="text-xs text-gray-400">BPM</span>
                 </div>
-                <div className={`text-lg font-medium ${getZoneColor()}`}>
+                <div className={`text-sm font-semibold ${getZoneColor()}`}>
                   {getHeartRateZone()}
                 </div>
               </div>
-              
-              <div className="h-2 bg-gray-600 rounded-full overflow-hidden mb-3">
+              <div className="h-2 bg-gray-600 rounded-full overflow-hidden mb-2">
                 <div 
                   className="h-full bg-gradient-to-r from-blue-500 via-green-500 to-red-500" 
-                  style={{ width: `${Math.min(100, (heartRate - 60) / 1.2)}%` }}
-                ></div>
+                  style={{ width: `${Math.min(100, Math.max(10, (heartRate - 60) / 1.2))}%` }}
+                />
               </div>
-              
-              <div className="text-xs text-gray-400 flex justify-between">
-                <span>Resting</span>
-                <span>Peak</span>
-              </div>
-              
-              {/* Heart rate history graph */}
-              <div className="mt-4 h-20 relative">
-                <div className="absolute inset-0 flex items-end">
-                  {heartRateHistory.map((entry, index) => (
+              <div className="h-12 flex items-end gap-1 mt-3">
+                {heartRateHistory.map((entry, index) => (
+                  <div key={index} className="flex-1 bg-gray-700 h-full flex items-end rounded-t-sm overflow-hidden">
                     <div 
-                      key={index}
-                      className="flex-1 h-full flex items-end"
-                    >
-                      <div 
-                        className="w-full bg-blue-500 rounded-t-sm"
-                        style={{ 
-                          height: `${((entry.rate - 60) / 120) * 100}%`,
-                          backgroundColor: entry.rate > 140 ? '#ef4444' : entry.rate > 120 ? '#f59e0b' : '#3b82f6'
-                        }}
-                      ></div>
-                    </div>
-                  ))}
-                </div>
+                      className="w-full bg-blue-500"
+                      style={{ 
+                        height: `${Math.min(100, Math.max(15, ((entry.rate - 60) / 120) * 100))}%`,
+                        backgroundColor: entry.rate > 140 ? '#ef4444' : entry.rate > 120 ? '#f59e0b' : '#3b82f6'
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
             <div className="mb-6">
-              <h2 className="text-xl font-bold mb-3">Controls</h2>
-
+              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-300 mb-3">Controls</h2>
               <div className="flex flex-col gap-3">
                 <button
                   onClick={toggleTracking}
                   className={`${
-                    isTracking
-                      ? 'bg-red-600 hover:bg-red-700'
-                      : 'bg-green-600 hover:bg-green-700'
-                  } px-4 py-2 rounded-lg font-bold transition-colors`}
+                    isTracking ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'
+                  } py-3 px-4 rounded-xl font-bold transition-all shadow-md`}
                   disabled={loadingState !== 'ready'}
                 >
-                  {isTracking ? 'Stop Tracking' : 'Start Tracking'}
+                  {isTracking ? 'Pause Tracking' : 'Start Tracking'}
                 </button>
-
                 <button
                   onClick={resetStats}
-                  className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg font-bold transition-colors"
+                  className="bg-gray-700 hover:bg-gray-600 py-2.5 px-4 rounded-xl font-semibold transition-colors border border-gray-600 text-sm"
                 >
                   Reset Counter
                 </button>
-
                 {showManualMode && (
                   <button
                     onClick={handleManualCount}
-                    className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-bold transition-colors mt-4"
+                    className="bg-blue-600 hover:bg-blue-500 py-2.5 px-4 rounded-xl font-semibold transition-colors text-sm"
                   >
-                    Count Push-ups Manually
+                    + Count Push-up Manually
                   </button>
                 )}
               </div>
-              <div>
-                <img src={pushup} alt="Push-up GIF" className='mt-4 rounded-xl'/>
-              </div>
             </div>
 
-            <div>
-              <h2 className="text-xl font-bold mb-3">Tips</h2>
-              <ul className="list-disc pl-5 space-y-2 text-gray-300">
-                <li>Face the camera from the side view</li>
-                <li>Make sure your upper body is visible</li>
-                <li>Keep your back straight during push-ups</li>
-                <li>Go all the way down and all the way up</li>
-                <li>Maintain a steady pace</li>
-              </ul>
+            <div className="rounded-xl overflow-hidden border border-gray-700">
+              <img src={pushup} alt="Push-up Demo" className="w-full object-cover" />
             </div>
           </div>
 
           <div className="lg:col-span-2">
-            <div className="bg-gray-800 rounded-xl p-4 shadow-lg">
-              <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+            <div className="bg-gray-800 rounded-xl p-5 shadow-lg border border-gray-700/60">
+              <div className="relative aspect-video bg-black rounded-xl overflow-hidden border border-gray-700">
                 <video
                   ref={videoRef}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover hidden"
                   playsInline
                   muted
                 />
@@ -659,73 +487,72 @@ const Pushup = () => {
                   className="absolute inset-0 w-full h-full object-cover z-10"
                 />
 
-                {renderLoadingState()}
+                {loadingState !== 'ready' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 z-30 p-6">
+                    <div className="w-14 h-14 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+                    <p className="text-white text-base font-semibold mb-3">Loading Pose Engine...</p>
+                    <div className="w-64 bg-gray-700 h-2 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${loadingProgress}%` }} />
+                    </div>
+                  </div>
+                )}
 
-                {renderErrorState()}
+                {errorMessage && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-40 p-6 text-center">
+                    <p className="text-red-400 font-bold mb-3">{errorMessage}</p>
+                    <button
+                      onClick={() => { setErrorMessage(''); setShowManualMode(true); }}
+                      className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-xl text-sm font-bold"
+                    >
+                      Use Manual Counter
+                    </button>
+                  </div>
+                )}
 
                 {loadingState === 'ready' && (
                   <>
                     <div className="absolute top-4 left-4 z-20">
-                      <div className="bg-black/60 text-white px-3 py-1 rounded-full text-sm">
-                        {isTracking ? 'Tracking Active' : 'Tracking Paused'}
-                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isTracking ? 'bg-green-600/90 text-white' : 'bg-yellow-600/90 text-white'}`}>
+                        {isTracking ? '● Tracking Active' : '❚❚ Tracking Paused'}
+                      </span>
                     </div>
 
-                    {/* Exercise Counter */}
                     <div className="absolute top-4 right-4 z-20">
-                      <div className="bg-black/60 text-white px-4 py-2 rounded-lg">
-                        <span className="text-3xl font-bold">{exerciseCount}</span>
-                        <span className="ml-2">Push-ups</span>
+                      <div className="bg-black/70 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-gray-700 text-center">
+                        <span className="text-2xl font-black text-teal-400">{exerciseCount}</span>
+                        <span className="text-xs text-gray-300 ml-1.5">Reps</span>
                       </div>
                     </div>
 
-                    {/* Feedback */}
                     {feedback && (
                       <div className="absolute bottom-4 left-4 right-4 z-20 text-center">
-                        <div className="bg-black/60 text-white px-4 py-2 rounded-lg inline-block mx-auto">
+                        <div className="bg-black/80 backdrop-blur-md border border-gray-700 text-white text-sm px-4 py-2 rounded-xl inline-block max-w-md mx-auto shadow-lg">
                           {feedback}
                         </div>
                       </div>
                     )}
                   </>
                 )}
-
-                {/* Manual Mode Overlay */}
-                {showManualMode && loadingState === 'ready' && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
-                    <div className="text-center">
-                      <h3 className="text-xl font-bold text-white mb-2">Manual Tracking Mode</h3>
-                      <p className="text-white mb-4">Press the button to count your push-ups</p>
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* Progress */}
-              <div className="mt-6">
-                <h3 className="text-xl font-bold mb-2">Today's Goal</h3>
-                <div className="h-4 bg-gray-700 rounded-full overflow-hidden">
+              <div className="mt-5">
+                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                  <span>Workout Goal</span>
+                  <span>{exerciseCount} / 20 Reps ({Math.round(Math.min(100, (exerciseCount / 20) * 100))}%)</span>
+                </div>
+                <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500 ease-out"
+                    className="h-full bg-gradient-to-r from-blue-500 to-teal-400 transition-all duration-300"
                     style={{ width: `${Math.min(100, (exerciseCount / 20) * 100)}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-sm mt-1">
-                  <span>0</span>
-                  <span>Goal: 20 Push-ups</span>
-                </div>
               </div>
 
-              {/* Quick Guide */}
-              <div className="mt-6 bg-gray-700 p-4 rounded-lg">
-                <h3 className="text-lg font-bold mb-2">Quick Troubleshooting</h3>
-                <div className="space-y-2 text-sm text-gray-300">
-                  <p>• If tracking is inaccurate, try better lighting</p>
-                  <p>• Make sure you're visible in the frame</p>
-                  <p>• Side view works best for exercise detection</p>
-                  <p>• Move slower for better tracking</p>
-                  <p>• Stay in frame throughout the entire exercise</p>
-                </div>
+              <div className="mt-5 p-4 rounded-xl bg-gray-700/40 border border-gray-700 text-xs text-gray-300 space-y-1.5">
+                <p className="font-bold text-gray-200 text-sm mb-1">Push-up Guidance</p>
+                <p>• Keep your body in a straight line from heels to head.</p>
+                <p>• Lower chest until elbows reach 90 degrees or less.</p>
+                <p>• Push all the way back up to lock out your arms.</p>
               </div>
             </div>
           </div>
